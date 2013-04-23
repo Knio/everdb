@@ -33,6 +33,10 @@ INDEX_MASK = (INDEX_SIZE - 1)
 
 OFFSET_MASK = ~ BLOCK_MASK
 
+
+READ = 1
+WRITE = 2
+
 class Archive(object):
     def __init__(self, filename):
         self.filename = filename
@@ -41,10 +45,21 @@ class Archive(object):
         self.index = ArchiveFile(self, 0)
         self.num_blocks = self.length / BLOCK_SIZE
 
+    def load_index(self):
+        f = File(self, 0)
+        self.index = json.loads(f.read())
+
+    def save_index(self):
+        f = File(self, 0)
+        d = json.dumps(self.index)
+        f.write(0, d)
+        f.truncate(len(d))
+        f.flush()
+
     def open(self, name, mode):
         if mode == 'r':
-            streamid, length = self.index.[name]
-        return File(self, streamid, length)
+            streamid = self.index[name]
+        return File(self, streamid)
 
     def allocate_block(self):
         self.file.seek(self.num_blocks * BLOCK_SIZE)
@@ -65,13 +80,23 @@ class ArchiveFile(object):
         self.archive = archive
         self.root_id = root_id
 
+        # true if root_id block is dirty
         self.dirty_index0 = False
-        self.dirty_index1 = []
+
+        # set of block ids of dirty index pages
+        self.dirty_index1 = set()
 
         self.load_index()
 
     def load_index(self):
+        # array of INDEX_SIZE entries
+        # last entry is the file's size
+        # second last entry is 0
+        # non-zero entries are alocated blocks
+        # zero entries are unallocated
         self.index_blocks = array.array('I')
+
+        # array of index pages, unallocated pages are not present
         self.index = []
 
         f = self.archive.file
@@ -81,8 +106,10 @@ class ArchiveFile(object):
         for i, b in enumerate(self.index_blocks):
             if b == 0: break
             f.seek(i << BLOCK_SHIFT)
+            # similar to index_blocks above,
+            # INDEX_SIZE array where 0 values are unallocated
             index = array.array('I')
-            index.fromfile(f, BLOCK_SIZE>>2)
+            index.fromfile(f, INDEX_SIZE)
             self.index.append(index)
 
         self.length = self.index_blocks[-1]
@@ -109,6 +136,7 @@ class ArchiveFile(object):
 
         return ''.join(data)
 
+
     def write(self, offset, data):
         f = self.archive.file
         n = len(data)
@@ -117,7 +145,7 @@ class ArchiveFile(object):
         self.allocate(offset + n)
 
         while i < n:
-            next_block = (offset + BLOCK_SIZE) & BLOCK_MASK
+            next_block = (offset + BLOCK_SIZE) & OFFSET_MASK
             k = min(next_block, n) - offset
 
             block = self.index[INDEX0(offset)][INDEX1(offset)]
@@ -129,6 +157,7 @@ class ArchiveFile(object):
             i = k
             offset = next_block
 
+
     def allocate(self, length):
         if self.length >= length:
             # TODO truncate file!
@@ -137,6 +166,8 @@ class ArchiveFile(object):
         if length > BLOCK_SIZE * (INDEX_SIZE - 2):
             raise IOError('maximum file size exceeded')
 
+        # request to grow file.
+        # allocate new blocks
         while self.length < length:
             next_block = (self.length + BLOCK_SIZE - 1) & BLOCK_MASK
             k = min(next_block, length)
@@ -147,20 +178,48 @@ class ArchiveFile(object):
                 index = self.archive.allocate_block()
                 self.index_blocks[i0] = index
                 self.index[i0] = array.array('I', [0] * INDEX_SIZE)
-                self.dirty_blocks.append(index)
+                self.dirty_index0 = True
 
             if self.index_blocks[i0][i1] == 0:
                 block = self.archive.allocate_block()
                 self.index_blocks[i0][i1] = block
-                self.dirty_index1.append(i0)
+                self.dirty_index1.add(i0)
 
             self.length = k
+
+        # request to shrink file.
+        # free blocks
+        if self.length > length:
+            i0 = INDEX0(self.length)
+            i1 = INDEX1(self.length)
+
+            j0 = INDEX0(length)
+            j1 = INDEX1(length)
+
+            while i0 > l0:
+                for i in self.index[i0]:
+                    self.archive.free(i)
+                del index[i0]
+
+                self.archive.free(self.index_blocks[i0])
+                self.index_blocks[i0] = 0
+                self.dirty_index1.discard(i0)
+                self.dirty_index0 = True
+
+            while i1 > j1:
+                self.archive.free(self.index[i0][i1])
+                self.index[i0][ii] = 0
+                self.dirty_index1.add(i0)
+                i1 -= 1
+
+            self.length = length
+
 
         self.index_blocks[-1] = self.length
         self.dirty_index0 = True
 
-    def truncate(self, length):
-        raise NotImplementedError
+    truncate = allocate
+
 
     def flush(self):
         f = self.archive.file
@@ -189,11 +248,11 @@ class FileInterface(object):
         if whence == 1:
             self.position += offset
         if whence == -1:
-            self.position = self.length - offset
+            self.position = self.f.length - offset
 
     def read(self, n=None):
         if n is None:
-            return self.f.read(self.position, self.length - self.position)
+            return self.f.read(self.position, self.f.length - self.position)
         else:
             return self.f.read(self.position, n)
 
@@ -206,3 +265,9 @@ class FileInterface(object):
 
     def close(self):
         self.flush()
+
+
+
+
+def test_archive():
+    pass
