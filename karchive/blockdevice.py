@@ -31,7 +31,7 @@ class BlockDevice(object):
     return cls(False, f, m, block_size)
 
   def __init__(self, new, file, mmap, block_size):
-    self.file = file 
+    self.file = file
     self.mmap = mmap
     self.view = memoryview(self.mmap)
     self.block_size = block_size
@@ -40,7 +40,7 @@ class BlockDevice(object):
       if block == -1:
         self.mmap.flush()
       else:
-        self.mmap.flush(self.block_size * block, block_size)
+        self.mmap.flush(self.block_size * block, self.block_size)
 
   def close(self):
     self.view.release()
