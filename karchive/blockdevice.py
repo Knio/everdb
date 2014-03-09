@@ -1,8 +1,16 @@
-import io
+# pylint: disable=missing-docstring, W0311, invalid-name
 import os
 import mmap
-import struct
 
+
+
+import sys
+if sys.version < '3.3.0':
+  view = lambda x: x
+else:
+  view = memoryview
+
+BLOCK_SIZE = (4096)
 
 class BlockDevice(object):
   '''
@@ -10,7 +18,7 @@ class BlockDevice(object):
   '''
 
   @classmethod
-  def create(cls, fname, block_size=4096):
+  def create(cls, fname, block_size=BLOCK_SIZE):
     f = open(fname, 'w+b')
     f.write(b'\0' * block_size)
     f.flush()
@@ -48,9 +56,9 @@ class BlockDevice(object):
     self.file.close()
 
   def resize(self, num_blocks):
-    self.length_bytes = num_blocks * self.block_size
+    length_bytes = num_blocks * self.block_size
     self.view.release()
-    self.mmap.resize(self.length_bytes)
+    self.mmap.resize(length_bytes)
     self.view = memoryview(self.mmap)
 
   def get_block(self, i):
