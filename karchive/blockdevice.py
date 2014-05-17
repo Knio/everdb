@@ -67,9 +67,8 @@ class BlockDevice(object):
     return self.view[s:e]
 
   def set_block(self, i, v):
+    self.get_block(i)[:] = v
     s = i * self.block_size
-    e = s + self.block_size
-    self.view[s:e] = v
 
   __getitem__ = get_block
   __setitem__ = set_block
