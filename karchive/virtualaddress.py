@@ -21,10 +21,10 @@
 #         raise ValueError('verification error')
 import zlib
 
-from .blockdevice import BlockDevice
+from .blockdevice import BlockDeviceInterface
 
 META = dict(k, i for i, k in enumerate([
-  'size',
+  'num_blocks',
   'checksum', # should be last
 ]))
 
@@ -39,39 +39,41 @@ INDEX_MASK = (INDEX_SIZE - 1)
 INDEX0 = lambda x:(x >> INDEX_BITS) & INDEX_MASK
 INDEX1 = lambda x:(x)               & INDEX_MASK
 
-class VirtualAddressSpace(object):
+class VirtualAddressSpace(BlockDeviceInterface):
   '''
   Emulates a BlockDevice on top of a BlockDevice, given a root block.
   Host and virtual devices must have block_size=4096.
 
   Maximum virtual device size is 992 * 1024 blocks (about 3.875 GiB)
   '''
-  def __init__(self, device, root, new):
-    raise ValueError if device.block_size != 4096
-    self.device = device
+  def __init__(self, host, root, new):
+    raise ValueError if host.block_size != BLOCK_SIZE
+    self.host = host
     self.root = root
     self.dirty = False
 
-    # root block as attay of 1024 uints
-    uint = self.device[self.root].cast('I')
+    # root block as attay of INDEX_SIZE uints
+    uint = self.host[self.root].cast('I')
     header_size = len(meta) * 4
-    index0_size = 1024 - header_size
+    index0_size = INDEX_SIZE - header_size
     self.index0 = uint[          0:index0_size]
-    self.meta   = uint[index0_size:       1024]
+    self.meta   = uint[index0_size: INDEX_SIZE]
     if new:
       self.init_root()
     else:
       self.verify_checksum()
 
   def init_root(self):
-    for i in xrange(len(self.index0)):
-      self.index0[i] = 0
-    self.size = 0
-    self.checksum = self.calc_checksum()
-    self.device.flush(self.root)
+    self.index0[:] = [0] * len(self.index0)
+    self.num_blocks = 0
+    self.flush_root()
 
   def calc_checksum(self):
-    return zlib.crc32(self.device[self.root][-4])
+    return zlib.crc32(self.host[self.root][-4])
+
+  def flush_root(self):
+    self.checksum = self.calc_checksum()
+    self.host.flush(self.root)
 
   def verify_checksum(self):
     if not self.calc_checksum() == self.checksum:
@@ -90,21 +92,56 @@ class VirtualAddressSpace(object):
     self.meta[i] = value
     self.dirty = True
 
-  def flush(self):
-    self.device.flush(self.block)
-
-  def get_block(self, i):
-    if i >= self.size:
+  def get_host_index(self, i):
+    if i >= self.num_blocks:
       return IndexError
 
     i0 = INDEX0(i)
     i1 = INDEX1(i)
 
     b1 = self.index0[i0]
-    index1 = self.device[b1].cast('I')
-    b2 = index1[i1]
-    return self.device[b2]
+    # TODO cache this?
+    index1 = self.host[b1].cast('I')
+    return index1[i1]
 
-  # TODO
-  # reffactor BlockDevice into BlockInterface and have this inhert from
-  # BlockInterface so that it has set_block & etc
+  def get_block(self, i):
+    return self.host.get_block(self.get_host_index(i))
+
+  def flush(self, block=-1):
+    if block == -1:
+      self.host.flush()
+    else:
+      self.host.flush(self.get_host_index(block))
+
+  def resize(self, num_blocks):
+    while self.num_blocks < num_blocks:
+      # grow larger
+      i0 = INDEX0(self.num_blocks)
+      j0 = INDEX0(num_blocks)
+
+      if i0 < j0:
+        b1 = self.host.allocate()
+        self.index0[i0] = b1
+        index1 = self.host[b1].cast('I')
+        index1[:] = [0] * INDEX_SIZE
+        i0 += 1
+
+      i1 = INDEX1(self.num_blocks)
+      j1 = INDEX1(min(num_blocks, i0 << INDEX_BITS))
+
+      b1 = self.index0[i0]
+      index1 = self.host[b1].cast('I')
+      while i1 < j1:
+        index1[i1] = self.host.allocate()
+        i1 += 1
+      self.host.flush(b1)
+
+      self.num_blocks = i0 << INDEX_BITS + i1
+
+    # shrink
+    while self.num_blocks > num_blocks:
+      raise NotImplemented
+      # TODO
+
+    self.flush_root()
+
