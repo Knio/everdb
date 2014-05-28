@@ -114,8 +114,9 @@ class VirtualAddressSpace(BlockDeviceInterface):
       self.host.flush(self.get_host_index(block))
 
   def resize(self, num_blocks):
+
+    # grow
     while self.num_blocks < num_blocks:
-      # grow larger
       i0 = INDEX0(self.num_blocks)
       j0 = INDEX0(num_blocks)
 
@@ -134,14 +135,31 @@ class VirtualAddressSpace(BlockDeviceInterface):
       while i1 < j1:
         index1[i1] = self.host.allocate()
         i1 += 1
+        self.num_blocks += 1
       self.host.flush(b1)
-
-      self.num_blocks = i0 << INDEX_BITS + i1
 
     # shrink
     while self.num_blocks > num_blocks:
       raise NotImplemented
       # TODO
+
+      i0 = INDEX0(self.num_blocks)
+      j0 = INDEX0(num_blocks)
+
+      i1 = INDEX1(self.num_blocks)
+      j1 = INDEX1(min(num_blocks, i0 << INDEX_SIZE))
+
+      b1 = self.index0[i0]
+      index1 = self.host[b1].cast('I')
+      while i1 > j1:
+        self.host.free(index1[i1])
+        i1 -= 1
+        self.num_blocks -= 1
+
+      if i0 > j0:
+        self.index0[i0] = 0
+        self.host.free(b1)
+        i0 -= 1
 
     self.flush_root()
 
