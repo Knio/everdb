@@ -12,7 +12,8 @@ def test_open():
   os.remove(TEST_NAME)
 
 def test_bd():
-  # os.remove(TEST_NAME)
+  try:  os.remove(TEST_NAME)
+  except FileNotFoundError: pass
   bd = karchive.FileBlockDevice.create(TEST_NAME, block_size=64)
   assert len(bd) == 1
   bd.resize(2)

@@ -28,11 +28,11 @@ class FileBlockDevice(BlockDeviceInterface):
     return cls(True, f, m, block_size)
 
   @classmethod
-  def open(cls, fname, block_size=4096):
+  def open(cls, fname, block_size=4096, readonly=False):
     l = os.path.getsize(fname)
-    f = open(fname, 'r+b')
+    f = open(fname, readonly and 'rb' or 'r+b')
     if os.name == 'nt':
-      m = mmap.mmap(f.fileno(), l, access=mmap.ACCESS_WRITE)
+      m = mmap.mmap(f.fileno(), l, access=readonly and mmap.ACCESS_WRITE)
     else:
       raise NotImplementedError
     return cls(False, f, m, block_size)
@@ -64,6 +64,10 @@ class FileBlockDevice(BlockDeviceInterface):
     s = i * self.block_size
     e = s + self.block_size
     return self.view[s:e]
+
+  @property
+  def num_blocks(self):
+    return self.size()
 
   def size(self):
     return len(self.mmap) // self.block_size

@@ -23,11 +23,7 @@ import zlib
 
 from .blockdevice import BlockDeviceInterface
 
-META = dict(k, i for i, k in enumerate([
-  'num_blocks',
-  'checksum', # should be last
-]))
-
+# TODO
 BLOCK_BITS = (12)
 BLOCK_SIZE = (1 << BLOCK_BITS)
 BLOCK_MASK = (BLOCK_SIZE - 1)
@@ -39,29 +35,40 @@ INDEX_MASK = (INDEX_SIZE - 1)
 INDEX0 = lambda x:(x >> INDEX_BITS) & INDEX_MASK
 INDEX1 = lambda x:(x)               & INDEX_MASK
 
+
 class VirtualAddressSpace(BlockDeviceInterface):
   '''
   Emulates a BlockDevice on top of a BlockDevice, given a root block.
   Host and virtual devices must have block_size=4096.
 
-  Maximum virtual device size is 992 * 1024 blocks (about 3.875 GiB)
+  Maximum virtual device size is (1024 - HEADER_SIZE) * 1024 blocks,
+  Which will probably be just under 4GiB
   '''
+
+  HEADER = dict((k, i) for i, k in enumerate([
+    'num_blocks',
+    'checksum', # must be last
+  ]))
+
   def __init__(self, host, root, new):
-    raise ValueError if host.block_size != BLOCK_SIZE
+    if host.block_size != BLOCK_SIZE: raise ValueError
     self.host = host
     self.root = root
     self.dirty = False
 
-    # root block as attay of INDEX_SIZE uints
+    # root block as array of INDEX_SIZE uints
     uint = self.host[self.root].cast('I')
-    header_size = len(meta) * 4
+    header_size = len(self.HEADER) * 4
     index0_size = INDEX_SIZE - header_size
     self.index0 = uint[          0:index0_size]
-    self.meta   = uint[index0_size: INDEX_SIZE]
+    self.header = uint[index0_size: INDEX_SIZE]
     if new:
       self.init_root()
     else:
       self.verify_checksum()
+
+  def size(self):
+    return self.num_blocks
 
   def init_root(self):
     self.index0[:] = [0] * len(self.index0)
@@ -80,10 +87,10 @@ class VirtualAddressSpace(BlockDeviceInterface):
       raise ValueError('checksum does not match')
 
   def __getattr__(self, attr):
-    if attr not in META:
+    if attr not in HEADER:
       raise AttributeError
-    i = META[attr]
-    return self.meta[i]
+    i = HEADER[attr]
+    return self.header[i]
 
   def __setattr__(self, attr, value):
     if attr not in META:
@@ -114,7 +121,6 @@ class VirtualAddressSpace(BlockDeviceInterface):
       self.host.flush(self.get_host_index(block))
 
   def resize(self, num_blocks):
-
     # grow
     while self.num_blocks < num_blocks:
       i0 = INDEX0(self.num_blocks)
