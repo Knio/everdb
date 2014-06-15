@@ -6,15 +6,8 @@ import karchive
 TEST_NAME = 'test_archive.deleteme.dat'
 
 
-def test_open():
-  bd = karchive.FileBlockDevice.create(TEST_NAME, block_size=64)
-  bd.close()
-  os.remove(TEST_NAME)
-
 def test_bd():
-  try:  os.remove(TEST_NAME)
-  except FileNotFoundError: pass
-  bd = karchive.FileBlockDevice.create(TEST_NAME, block_size=64)
+  bd = karchive.FileBlockDevice(TEST_NAME, block_size=64, overwrite=True)
   assert len(bd) == 1
   bd.resize(2)
   assert len(bd) == 2
@@ -24,7 +17,7 @@ def test_bd():
   bd.close()
   assert os.path.getsize(TEST_NAME) == 128
 
-  bd = karchive.FileBlockDevice.open(TEST_NAME, block_size=64)
+  bd = karchive.FileBlockDevice(TEST_NAME, block_size=64, readonly=False)
   assert len(bd) == 2
   assert bd[0] == b'1'*64
   assert bd[1] == b'2'*64

@@ -5,9 +5,26 @@ import karchive
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_array():
-  try:  os.remove(TEST_NAME)
-  except FileNotFoundError: pass
-  host = karchive.Database(TEST_NAME)
+  host = karchive.Database(TEST_NAME, overwrite=True)
   ar = karchive.Array(host, 0, 'I', new=True)
 
+  N = 1
+  for i in range(N):
+    ar.append(i)
+
+  ar.close()
   host.close()
+
+  host = karchive.Database(TEST_NAME, readonly=True)
+  ar = karchive.Array(host, 0, 'I', new=False)
+
+  assert len(ar) == N
+  for i in range(N):
+    assert ar[i] == i
+
+  ar.close()
+  host.close()
+
+
+if __name__ == '__main__':
+  test_array()

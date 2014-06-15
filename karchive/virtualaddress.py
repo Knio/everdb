@@ -23,7 +23,6 @@ import zlib
 
 from .blockdevice import BlockDeviceInterface
 
-# TODO
 BLOCK_BITS = (12)
 BLOCK_SIZE = (1 << BLOCK_BITS)
 BLOCK_MASK = (BLOCK_SIZE - 1)
@@ -35,6 +34,7 @@ INDEX_MASK = (INDEX_SIZE - 1)
 INDEX0 = lambda x:(x >> INDEX_BITS) & INDEX_MASK
 INDEX1 = lambda x:(x)               & INDEX_MASK
 
+ZERO_BLOCK = b'\0' * BLOCK_SIZE
 
 class VirtualAddressSpace(BlockDeviceInterface):
   '''
@@ -46,6 +46,7 @@ class VirtualAddressSpace(BlockDeviceInterface):
   '''
 
   HEADER = dict((k, i) for i, k in enumerate([
+    'length',
     'num_blocks',
     'checksum', # must be last
   ]))
@@ -71,12 +72,13 @@ class VirtualAddressSpace(BlockDeviceInterface):
     return self.num_blocks
 
   def init_root(self):
-    self.index0[:] = [0] * len(self.index0)
+    self.host[self.root] = ZERO_BLOCK
+    self.length = 0
     self.num_blocks = 0
     self.flush_root()
 
   def calc_checksum(self):
-    return zlib.crc32(self.host[self.root][-4])
+    return zlib.crc32(self.host[self.root][:-4])
 
   def flush_root(self):
     self.checksum = self.calc_checksum()
@@ -87,20 +89,20 @@ class VirtualAddressSpace(BlockDeviceInterface):
       raise ValueError('checksum does not match')
 
   def __getattr__(self, attr):
-    if attr not in HEADER:
-      raise AttributeError
-    i = HEADER[attr]
+    if attr not in self.HEADER:
+      raise AttributeError(attr)
+    i = self.HEADER[attr]
     return self.header[i]
 
   def __setattr__(self, attr, value):
-    if attr not in META:
-      raise AttributeError
-    i = META[attr]
-    self.meta[i] = value
+    if attr not in self.HEADER:
+      return object.__setattr__(self, attr, value)
+    i = self.HEADER[attr]
+    self.header[i] = value
     self.dirty = True
 
   def get_host_index(self, i):
-    if i >= self.num_blocks:
+    if i >= len(self):
       return IndexError
 
     i0 = INDEX0(i)
@@ -120,40 +122,116 @@ class VirtualAddressSpace(BlockDeviceInterface):
     else:
       self.host.flush(self.get_host_index(block))
 
+  def close(self):
+    self.flush()
+    self.header.release()
+    self.index0.release()
+
   def resize(self, num_blocks):
     # grow
     while self.num_blocks < num_blocks:
-      i0 = INDEX0(self.num_blocks)
-      j0 = INDEX0(num_blocks)
+      # only resize up till next boundry (ie. 1024)
+      next_block0 = (self.num_blocks + INDEX_SIZE) & ~INDEX_MASK
+      k = min(next_block0, num_blocks)
+      i0 = INDEX0(k - 1)
+      i1 = INDEX1(k - 1)
+
+      if self.index0[i0] == 0:
+        b1 = self.host.allocate()
+        self.host[b1] = ZERO_BLOCK
+        self.index0[i0] = b1
+
+      else:
+        b1 = self.index0[i0]
+
+      index1 = self.host[b1].cast('I')
+
+      while i1 < next_block0:
+        i1 += 1
+        index1[i1] = self.host.allocate()
+        self.num_blocks += 1
+
+      self.host.flush(b1)
+      self.num_blocks = k
+
+
+
+      # ###### REFERENCE
+      if self.index_blocks[i0] == 0:
+        index = self.archive.allocate_block()
+        self.index_blocks[i0] = index
+        self.index.append(array.array('I', [0] * INDEX_SIZE))
+        self.dirty_index0 = True
+
+      if self.index[i0][i1] == 0:
+        block = self.archive.allocate_block()
+        self.index[i0][i1] = block
+        self.dirty_index1.add(i0)
+
+
+      self.length = k
+
+      # #### OLD
+
+    while self.num_blocks < num_blocks:
+      print('%d < %d' % (self.num_blocks, num_blocks))
+      # current & required index1 block
+      # required index1 block
+
+      next_block = (self.num_blocks + BLOCK_SIZE) & OFFSET_MASK
+      k = min(next_block, num_blocks)
+
+
+      i0 = INDEX0(self.num_blocks - 1)
+      i1 = INDEX1(self.num_blocks - 1)
+
+      if self.index0[i0] == 0:
+        b1 = self.host.allocate()
+        self.host[b1] = ZERO_BLOCK
+        self.index0[i0] = b1
+
+
+
+
+
+      i0 = INDEX0(self.num_blocks - 1)
+      j0 = INDEX0(num_blocks - 1)
+
+      i1 = INDEX1(self.num_blocks - 1)
+      j1 = INDEX1(num_blocks - 1)
+      print('%d %d' % (i0, j0))
 
       if i0 < j0:
+        # do we need another index0 block?
         b1 = self.host.allocate()
-        self.index0[i0] = b1
-        index1 = self.host[b1].cast('I')
-        index1[:] = [0] * INDEX_SIZE
         i0 += 1
+        self.index0[i0] = b1
+        self.host[b1][:] = '\0' * BLOCK_SIZE
 
-      i1 = INDEX1(self.num_blocks)
-      j1 = INDEX1(min(num_blocks, i0 << INDEX_BITS))
+
+
+      i1 = INDEX1(self.num_blocks - 1)
+      j1 = INDEX1(min(num_blocks, (i0 + 1) << INDEX_BITS) - 1)
+      print('%d %d' % (i1, j1))
 
       b1 = self.index0[i0]
       index1 = self.host[b1].cast('I')
       while i1 < j1:
-        index1[i1] = self.host.allocate()
         i1 += 1
+        index1[i1] = self.host.allocate()
         self.num_blocks += 1
       self.host.flush(b1)
 
     # shrink
     while self.num_blocks > num_blocks:
-      raise NotImplemented
-      # TODO
+      i0 = INDEX0(self.num_blocks - 1)
+      j0 = INDEX0(num_blocks - 1)
 
-      i0 = INDEX0(self.num_blocks)
-      j0 = INDEX0(num_blocks)
-
-      i1 = INDEX1(self.num_blocks)
-      j1 = INDEX1(min(num_blocks, i0 << INDEX_SIZE))
+      i1 = INDEX1(self.num_blocks - 1)
+      j1 = INDEX1(min(num_blocks, i0 << INDEX_BITS))
+      # 1200 -> 1024 (0)
+      # 1024 -> 1023
+      # 1023 -> 1022
 
       b1 = self.index0[i0]
       index1 = self.host[b1].cast('I')

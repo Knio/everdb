@@ -16,32 +16,24 @@ class FileBlockDevice(BlockDeviceInterface):
   A device that allocates and frees blocks backed by a disk file
   '''
 
-  @classmethod
-  def create(cls, fname, block_size=BLOCK_SIZE):
-    f = open(fname, 'w+b')
-    f.write(b'\0' * block_size)
-    f.flush()
-    if os.name == 'nt':
-      m = mmap.mmap(f.fileno(), block_size, access=mmap.ACCESS_WRITE)
+  def __init__(self, fname, readonly=False, overwrite=False, block_size=4096):
+    if overwrite or not os.path.isfile(fname):
+      if readonly: raise ValueError
+      l = block_size
+      f = open(fname, 'w+b')
+      f.write(b'\0' * block_size)
+      f.flush()
     else:
-      raise NotImplementedError
-    return cls(True, f, m, block_size)
+      l = os.path.getsize(fname)
+      f = open(fname, readonly and 'rb' or 'r+b')
 
-  @classmethod
-  def open(cls, fname, block_size=4096, readonly=False):
-    l = os.path.getsize(fname)
-    f = open(fname, readonly and 'rb' or 'r+b')
-    if os.name == 'nt':
-      m = mmap.mmap(f.fileno(), l, access=readonly and mmap.ACCESS_WRITE)
-    else:
-      raise NotImplementedError
-    return cls(False, f, m, block_size)
-
-  def __init__(self, new, file, mmap, block_size):
-    self.file = file
-    self.mmap = mmap
-    self.view = memoryview(self.mmap)
     self.block_size = block_size
+    self.file = f
+    if os.name == 'nt':
+      self.mmap = mmap.mmap(f.fileno(), l, access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
+    else:
+      raise NotImplementedError
+    self.view = memoryview(self.mmap)
 
   def flush(self, block=-1):
       if block == -1:

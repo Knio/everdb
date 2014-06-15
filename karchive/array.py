@@ -10,10 +10,16 @@ class Array(object):
     self.item_size = struct.calcsize(format)
     self.items_per_block = self.item_size / self.host.block_size
 
+  def close(self):
+    self.block.close()
+
   def get_block(self, i):
     j = i / self.items_per_block
     k = i % self.items_per_block
     return self.block[j].cast(self.format), j, k
+
+  def __len__(self):
+    return self.block.length
 
   def __getitem__(self, i):
     b, j, k = self.get_block(i)
@@ -24,9 +30,9 @@ class Array(object):
     b[k] = v
 
   def append(self, v):
-    i = self.length
-    if (self.length + 1) > (self.items_per_block * self.block.num_blocks):
+    i = self.block.length
+    if (i + 1) > (self.items_per_block * self.block.num_blocks):
       self.block.resize(self.block.num_blocks + 1)
-    self.length += 1
+    self.block.length += 1
     self[i] = v
 
