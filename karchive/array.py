@@ -8,14 +8,14 @@ class Array(object):
     self.block = VirtualAddressSpace(host, root, new)
     self.format = format
     self.item_size = struct.calcsize(format)
-    self.items_per_block = self.item_size / self.host.block_size
+    self.items_per_block = self.host.block_size // self.item_size
 
   def close(self):
     self.block.close()
 
   def get_block(self, i):
-    j = i / self.items_per_block
-    k = i % self.items_per_block
+    j = i // self.items_per_block
+    k = i %  self.items_per_block
     return self.block[j].cast(self.format), j, k
 
   def __len__(self):

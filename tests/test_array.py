@@ -8,7 +8,7 @@ def test_array():
   host = karchive.Database(TEST_NAME, overwrite=True)
   ar = karchive.Array(host, 0, 'I', new=True)
 
-  N = 1
+  N = 10000
   for i in range(N):
     ar.append(i)
 

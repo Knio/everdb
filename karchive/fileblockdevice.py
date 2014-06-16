@@ -17,6 +17,7 @@ class FileBlockDevice(BlockDeviceInterface):
   '''
 
   def __init__(self, fname, readonly=False, overwrite=False, block_size=4096):
+    self.readonly = readonly
     if overwrite or not os.path.isfile(fname):
       if readonly: raise ValueError
       l = block_size
@@ -37,9 +38,10 @@ class FileBlockDevice(BlockDeviceInterface):
 
   def flush(self, block=-1):
       if block == -1:
-        self.mmap.flush()
+        r = self.mmap.flush()
       else:
-        self.mmap.flush(self.block_size * block, self.block_size)
+        r = self.mmap.flush(self.block_size * block, self.block_size)
+      assert r != 0
 
   def close(self):
     self.view.release()

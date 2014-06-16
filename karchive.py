@@ -65,7 +65,7 @@ class Archive(object):
             self.file.seek(0, 1)
             self.length = self.file.tell() # this doesn't work sometimes
 
-        self.num_blocks = self.length / BLOCK_SIZE
+        self.num_blocks = self.length // BLOCK_SIZE
 
         # name -> ArchiveFile
         self.files = weakref.WeakValueDictionary()
