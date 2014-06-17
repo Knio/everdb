@@ -24,11 +24,11 @@ class FileBlockDevice(BlockDeviceInterface):
       f = open(fname, 'w+b')
       f.write(b'\0' * block_size)
       f.flush()
-      self.created = True
+      self.is_new = True
     else:
       l = os.path.getsize(fname)
       f = open(fname, readonly and 'rb' or 'r+b')
-      self.created = False
+      self.is_new = False
 
     self.block_size = block_size
     self.file = f

@@ -123,7 +123,7 @@ class VirtualAddressSpace(BlockDeviceInterface):
 
   def get_host_index(self, i):
     if i >= len(self):
-      return IndexError
+      raise IndexError('size: %d, i: %d' % (len(self), i))
 
     i0 = INDEX0(i)
     i1 = INDEX1(i)
@@ -168,13 +168,15 @@ class VirtualAddressSpace(BlockDeviceInterface):
       b1 = self.index0[i0]
       index1 = self.host[b1].cast('I')
       b2 = index1[i1]
-      del index1
+
       assert b2 != 0
       index1[i1] = 0
+      dirty.add(b1)
+      del index1 # must del if free causes a db resize
+      print('b1: %d b2: %d' % (b1, b2))
       self.host.free(b2)
-
-      if i0 == 0:
-        self.index0[b1] = 0
+      if i1 == 0:
+        self.index0[i0] = 0
         self.host.free(b1)
 
       self.num_blocks -= 1
@@ -183,60 +185,3 @@ class VirtualAddressSpace(BlockDeviceInterface):
     for b in dirty:
       self.host.flush(b)
     self.flush_root()
-
-
-    return
-    # grow
-    while self.num_blocks < num_blocks:
-      next_block0 = (self.num_blocks + INDEX_SIZE) & (~INDEX_MASK)
-      k = min(next_block0, num_blocks)
-
-      # indexes of last wanted block
-      i0 = INDEX0(k - 1)
-      i1 = INDEX1(k - 1)
-      j1 = INDEX1(self.num_blocks - 1)
-
-      if self.index0[i0] == 0:
-        b1 = self.host.allocate()
-        self.host[b1] = ZERO_BLOCK
-        self.index0[i0] = b1
-
-      b1 = self.index0[i0]
-      index1 = self.host[b1].cast('I')
-      while j1 < i1:
-        if index1[j1] == 0:
-          b2 = self.host.allocate()
-          index1[j1] = b2
-          self.host[b2] = ZERO_BLOCK
-          j1 += 1
-          self.num_blocks += 1
-
-      self.host.flush(b1)
-
-    # shrink
-    while self.num_blocks > num_blocks:
-      next_block0 = (self.num_blocks + INDEX_SIZE) & (~INDEX_MASK)
-
-      i0 = INDEX0(self.num_blocks - 1)
-      j0 = INDEX0(num_blocks - 1)
-
-      i1 = INDEX1(self.num_blocks - 1)
-      j1 = INDEX1(min(num_blocks, i0 << INDEX_BITS))
-      # 1200 -> 1024 (0)
-      # 1024 -> 1023
-      # 1023 -> 1022
-
-      b1 = self.index0[i0]
-      index1 = self.host[b1].cast('I')
-      while i1 > j1:
-        self.host.free(index1[i1])
-        i1 -= 1
-        self.num_blocks -= 1
-
-      if i0 > j0:
-        self.index0[i0] = 0
-        self.host.free(b1)
-        i0 -= 1
-
-    self.flush_root()
-

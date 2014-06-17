@@ -14,6 +14,8 @@ class Array(object):
     self.block.close()
 
   def get_block(self, i):
+    if i >= len(self):
+      raise IndexError
     j = i // self.items_per_block
     k = i  % self.items_per_block
     return self.block[j].cast(self.format), j, k
@@ -30,9 +32,25 @@ class Array(object):
     b[k] = v
 
   def append(self, v):
-    i = self.block.length
-    if (i + 1) > (self.items_per_block * self.block.num_blocks):
+    if self.items_per_block * self.block.num_blocks < (self.block.length + 1):
+      # may call pop()
+      print('grow: %d' % (self.block.num_blocks + 1))
       self.block.resize(self.block.num_blocks + 1)
+
+    i = self.block.length
     self.block.length += 1
     self[i] = v
 
+  def pop(self):
+    if not self.block.length:
+      raise IndexError
+
+    x = self[self.block.length - 1]
+    self.block.length -= 1
+
+    if (self.block.num_blocks - 2) * self.items_per_block > self.block.length:
+      # may call append()
+      print('shrink: %d' % (self.block.num_blocks - 1))
+      self.block.resize(self.block.num_blocks - 1)
+
+    return x

@@ -8,22 +8,25 @@ from .array             import Array
 class Database(FileBlockDevice):
   def __init__(self, *args, **kwargs):
     super(Database, self).__init__(*args, **kwargs)
-
-    # TODO IMPLEMENT THIS
-    if self.created:
-      pass
-    else:
-      pass
-    self.freeblocks = []
+    if self.is_new:
+      self.freelist = []
+      assert self.allocate() == 1
+    self.freelist = Array(self, 1, 'I', new=self.is_new)
 
   def allocate(self):
-    try:
-      return self.freeblocks.pop()
-    except IndexError:
+    if len(self.freelist):
+      # may call free()
+      block = self.freelist.pop()
+      return block
+    else:
       block = len(self)
       self.resize(block + 1)
       return block
 
   def free(self, block):
-    self.freeblocks.append(block)
+    # may call allocate()
+    self.freelist.append(block)
+
+
+
 
