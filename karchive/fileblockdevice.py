@@ -24,14 +24,17 @@ class FileBlockDevice(BlockDeviceInterface):
       f = open(fname, 'w+b')
       f.write(b'\0' * block_size)
       f.flush()
+      self.created = True
     else:
       l = os.path.getsize(fname)
       f = open(fname, readonly and 'rb' or 'r+b')
+      self.created = False
 
     self.block_size = block_size
     self.file = f
     if os.name == 'nt':
-      self.mmap = mmap.mmap(f.fileno(), l, access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
+      self.mmap = mmap.mmap(f.fileno(), l,
+          access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
     else:
       raise NotImplementedError
     self.view = memoryview(self.mmap)

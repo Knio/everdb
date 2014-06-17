@@ -15,7 +15,7 @@ class Array(object):
 
   def get_block(self, i):
     j = i // self.items_per_block
-    k = i %  self.items_per_block
+    k = i  % self.items_per_block
     return self.block[j].cast(self.format), j, k
 
   def __len__(self):

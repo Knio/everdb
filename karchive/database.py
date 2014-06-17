@@ -10,6 +10,10 @@ class Database(FileBlockDevice):
     super(Database, self).__init__(*args, **kwargs)
 
     # TODO IMPLEMENT THIS
+    if self.created:
+      pass
+    else:
+      pass
     self.freeblocks = []
 
   def allocate(self):
@@ -22,6 +26,4 @@ class Database(FileBlockDevice):
 
   def free(self, block):
     self.freeblocks.append(block)
-
-
 
