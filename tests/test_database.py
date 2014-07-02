@@ -10,7 +10,7 @@ def test_db():
   block = db.allocate()
   db[block] = b'A' * 4096
   db.close()
-  assert os.path.getsize(TEST_NAME) == 8192
+  assert os.path.getsize(TEST_NAME) == 12288
 
   db = karchive.Database(TEST_NAME)
   assert db[block] == b'A' * 4096

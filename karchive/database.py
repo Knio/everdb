@@ -12,21 +12,29 @@ class Database(FileBlockDevice):
       self.freelist = []
       assert self.allocate() == 1
     self.freelist = Array(self, 1, 'I', new=self.is_new)
+    self.blockviews = set()
 
   def allocate(self):
     if len(self.freelist):
       # may call free()
       block = self.freelist.pop()
-      return block
     else:
       block = len(self)
       self.resize(block + 1)
-      return block
+
+    return block
 
   def free(self, block):
     # may call allocate()
     self.freelist.append(block)
 
+  def commit(self):
+    for bv in self.blockviews:
+      bv.commit()
+
+  def rollback(self):
+    for bv in self.blockviews:
+      bv.rollback()
 
 
 

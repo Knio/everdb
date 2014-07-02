@@ -1,3 +1,4 @@
+# pylint: disable=bad-indentation, bad-whitespace, missing-docstring
 
 # import structpack as sp
 
@@ -185,3 +186,4 @@ class VirtualAddressSpace(BlockDeviceInterface):
     for b in dirty:
       self.host.flush(b)
     self.flush_root()
+

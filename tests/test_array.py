@@ -32,7 +32,7 @@ def test_array():
   for i in range(N-1, -1, -1):
     assert ar.pop() == i
 
-  assert tuple(host.freelist) == 0
+  assert tuple(host.freelist) == (12, 11, 10, 9, 8, 7, 6, 5)
 
   ar.close()
   host.close()
