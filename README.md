@@ -44,8 +44,51 @@ blob[j] = y
 blob[i:j] -> bytestr
 blob[i:j] = x
 
-blob.append(bytestr)
-blob.truncate(i)
+blob.resize(n) # make blob n bytes long
+blob.append(bytestr) # append bytes to end of blob, causing it to grow
+
+
+Implementation
+--------------
+
+Small Blob: A blob that fits in 1 page of memory. Can hold up to 4080 bytes
+
+   0 ..data..
+   4 ..data..
+.... ..data..
+4076 ..data..
+4080 blob_length
+4084 blob_length
+4088 blob type (1 = small blob)
+4092 checksum
+4096
+
+A small blob will automatically convert to a regular blob if requested to
+grow past 4080 bytes.
+
+Regular Blob: page pointers and page table pointers.
+
+   0 data_pointer
+   4 data_pointer
+....
+2044 data_pointer
+2048 page_pointer
+2052 page_pointer
+4076 page_pointer
+4080 blob_length
+4084 blob_length
+4088 blob type (2 = regular blob)
+4092 checksum
+4096
+
+Page table:
+
+   0 data_pointer
+   4 data_pointer
+....
+4092 data_pointer
+4096
+
 
 
 Arrays
