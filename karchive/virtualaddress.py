@@ -24,7 +24,7 @@ import zlib
 
 from .blockdevice import BlockDeviceInterface
 
-BLOCK_BITS = (12)
+BLOCK_BITS = (12) # 4096 bytes
 BLOCK_SIZE = (1 << BLOCK_BITS)
 BLOCK_MASK = (BLOCK_SIZE - 1)
 
@@ -37,18 +37,11 @@ INDEX1 = lambda x:(x)               & INDEX_MASK
 
 ZERO_BLOCK = b'\0' * BLOCK_SIZE
 
-class VirtualAddressSpace(BlockDeviceInterface):
-  '''
-  Emulates a BlockDevice on top of a BlockDevice, given a root block.
-  Host and virtual devices must have block_size=4096.
 
-  Maximum virtual device size is (1024 - HEADER_SIZE) * 1024 blocks,
-  Which will probably be just under 4GiB
-  '''
-
+class Blob(BlockDeviceInterface):
   HEADER = dict((k, i) for i, k in enumerate([
     'length',
-    'num_blocks',
+    'block_type',
     'checksum', # must be last
   ]))
 
@@ -61,6 +54,31 @@ class VirtualAddressSpace(BlockDeviceInterface):
       self.init_root()
     else:
       self.verify_checksum()
+    self.num_blocks = INDEX1(self.length + INDEX_SIZE)
+
+  @property
+  def data(self):
+    if self.block_type == BLOCK_SMALL:
+      return self.host[self.root][0:self.length]
+    return self.read()
+
+
+  @data.set
+  def set_data(self, data):
+    l = len(data)
+    if l <= BLOCK_SIZE - self.header_size:
+      self.host[self.root][0:l] = data
+      self.length = l
+      return
+
+    raise NotImplementedError
+
+  def make_small(self):
+    if not self.block_type == 2:
+      raise ValueError
+    if not self.length <= BLOCK_SIZE - self.header_size
+    data = self.data
+
 
   @property
   def index0(self):
@@ -78,7 +96,7 @@ class VirtualAddressSpace(BlockDeviceInterface):
   def init_root(self):
     self.host[self.root] = ZERO_BLOCK
     self.length = 0
-    self.num_blocks = 0
+    self.block_type = 1
     self.flush_root()
 
   def calc_checksum(self):
@@ -159,7 +177,6 @@ class VirtualAddressSpace(BlockDeviceInterface):
       index1[i1] = b2
       dirty.add(b1)
       self.num_blocks += 1
-
 
     # shrink
     while self.num_blocks > num_blocks:
