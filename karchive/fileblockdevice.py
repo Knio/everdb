@@ -36,7 +36,7 @@ class FileBlockDevice(BlockDeviceInterface):
       self.mmap = mmap.mmap(f.fileno(), l,
           access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
     else:
-      raise NotImplementedError
+      raise NotImplementedError('implement me')
     self.view = memoryview(self.mmap)
 
   def flush(self, block=-1):
@@ -52,12 +52,20 @@ class FileBlockDevice(BlockDeviceInterface):
     self.file.close()
 
   def resize(self, num_blocks):
+    '''
+    Resize the file to be num_blocks in length.
+    Will truncate or add new blocks as needed.
+    '''
     length_bytes = num_blocks * self.block_size
     self.view.release()
     self.mmap.resize(length_bytes)
     self.view = memoryview(self.mmap)
 
   def get_block(self, i):
+    '''
+    Returns a memoryview of the ith block in the file
+    Note: view needs to be released by the caller or release()/close() will fail.
+    '''
     s = i * self.block_size
     e = s + self.block_size
     return self.view[s:e]
