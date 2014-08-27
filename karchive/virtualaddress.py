@@ -37,6 +37,8 @@ INDEX1 = lambda x:(x)               & INDEX_MASK
 
 ZERO_BLOCK = b'\0' * BLOCK_SIZE
 
+SMALL_BLOCK = 1
+MEDIUM_BLOCK = 2
 
 class Blob(BlockDeviceInterface):
   HEADER = dict((k, i) for i, k in enumerate([
@@ -50,83 +52,18 @@ class Blob(BlockDeviceInterface):
     self.host = host
     self.root = root
     self.header_size = len(self.HEADER)
+
     if new:
       self.init_root()
     else:
       self.verify_checksum()
+
     self.num_blocks = INDEX1(self.length + INDEX_SIZE)
-
-  @property
-  def data(self):
-    if self.block_type == BLOCK_SMALL:
-      return self.host[self.root][0:self.length]
-    return self.read()
-
-
-  @data.set
-  def set_data(self, data):
-    l = len(data)
-    if l <= BLOCK_SIZE - self.header_size:
-      self.host[self.root][0:l] = data
-      self.length = l
-      return
-
-    raise NotImplementedError
-
-  def make_small(self):
-    if not self.block_type == 2:
-      raise ValueError
-    if not self.length <= BLOCK_SIZE - self.header_size
-    data = self.data
-
-
-  @property
-  def index0(self):
-    return self.host[self.root].cast('I')\
-      [0:self.header_size]
 
   @property
   def header(self):
     return self.host[self.root].cast('I')\
       [INDEX_SIZE - self.header_size:INDEX_SIZE]
-
-  def size(self):
-    return self.num_blocks
-
-  def init_root(self):
-    self.host[self.root] = ZERO_BLOCK
-    self.length = 0
-    self.block_type = 1
-    self.flush_root()
-
-  def calc_checksum(self):
-    print(self.header.tolist())
-    return zlib.crc32(self.host[self.root][:-4])
-
-  def flush_root(self):
-    self.checksum = self.calc_checksum()
-    print('flush, checksum = %d' % self.checksum)
-    self.host.flush(self.root)
-    self.verify_checksum()
-
-  def flush(self, block=-1):
-    if block == -1:
-      self.host.flush()
-    else:
-      self.host.flush(self.get_host_index(block))
-
-  def close(self):
-    if not self.host.readonly:
-      self.flush_root()
-      self.flush()
-    # now properties
-    # self.header.release()
-    # self.index0.release()
-
-  def verify_checksum(self):
-    checksum = self.calc_checksum()
-    if checksum != self.checksum:
-      raise ValueError('checksum does not match: %d != %d' % (checksum, self.checksum))
 
   def __getattr__(self, attr):
     if attr not in self.HEADER:
@@ -139,6 +76,83 @@ class Blob(BlockDeviceInterface):
       return object.__setattr__(self, attr, value)
     i = self.HEADER[attr]
     self.header[i] = value
+
+  def size(self):
+    return self.num_blocks
+
+  def calc_checksum(self, s):
+    return zlib.crc32(self.host[self.root][s])
+
+  def verify_checksum(self):
+    checksum = self.calc_checksum(s=slice(0))
+    if checksum != 558161692:
+      raise ValueError('checksum does not match: %d' % checksum)
+
+  def flush_root(self):
+    self.checksum = self.calc_checksum(slice(0,-4))
+    print('flush, checksum = %d' % self.checksum)
+    self.host.flush(self.root)
+    self.verify_checksum() # can remove later
+
+  def init_root(self):
+    self.host[self.root] = ZERO_BLOCK
+    self.length = 0
+    self.block_type = SMALL_BLOCK
+    self.flush_root()
+
+  def flush(self, block=-1):
+    if block == -1:
+      # TODO keep track of just these blocks
+      self.host.flush()
+    else:
+      self.host.flush(self.get_host_index(block))
+
+  def close(self):
+    if not self.host.readonly:
+      self.flush_root()
+      self.flush()
+    # now properties
+    # self.header.release()
+    # self.index0.release()
+
+  @property
+  def data(self):
+    if self.block_type == SMALL_BLOCK:
+      return self.host[self.root][0:self.length]
+    return self.read(0, self.length)
+
+  @data.set
+  def set_data(self, data):
+    l = len(data)
+    if l <= BLOCK_SIZE - self.header_size:
+      self.make_small()
+      self.host[self.root][0:l] = data
+      self.length = l
+      return
+
+    self.make_medium()
+    self.resize(l)
+    self.write(0, data)
+
+  def make_small(self):
+    if self.block_type == SMALL_BLOCK: return
+    if not self.length <= BLOCK_SIZE - self.header_size:
+      raise ValueError('too big to downsize')
+    if self.block_type == MEDIUM_BLOCK:
+      self.resize(0)
+      self.block_type = SMALL_BLOCK
+
+  def make_medium(self):
+    if self.block_type == : return
+    if self.block_type == MEDIUM_BLOCK:
+      self.resize(0)
+      self.block_type = SMALL_BLOCK
+
+  @property
+  def index0(self):
+    return self.host[self.root].cast('I')\
+      [0:self.header_size]
+
 
   def get_host_index(self, i):
     if i >= len(self):
