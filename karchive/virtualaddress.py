@@ -109,29 +109,18 @@ class Blob(BlockDeviceInterface):
 
   def close(self):
     if not self.host.readonly:
-      self.flush_root()
       self.flush()
+      self.flush_root()
     # now properties
     # self.header.release()
     # self.index0.release()
 
   @property
   def data(self):
-    if self.block_type == SMALL_BLOCK:
-      return self.host[self.root][0:self.length]
     return self.read(0, self.length)
 
   @data.set
   def set_data(self, data):
-    l = len(data)
-    if l <= BLOCK_SIZE - self.header_size:
-      self.make_small()
-      self.host[self.root][0:l] = data
-      self.length = l
-      return
-
-    self.make_medium()
-    self.resize(l)
     self.write(0, data)
 
   def make_small(self):
@@ -153,6 +142,32 @@ class Blob(BlockDeviceInterface):
     return self.host[self.root].cast('I')\
       [0:self.header_size]
 
+  def get_blocks(self, offset, length):
+
+
+
+  def read(self, offset, length):
+    if not (0 <= offset <= self.length):
+      raise ValueError('offset out of bounds')
+    if not (0 <= offset+length <= self.length):
+      raise ValueError('range out of bounds')
+
+    if self.block_type == SMALL_BLOCK:
+      return self.host[self.root][offset:offset+length]
+
+    b = []
+    raise NotImplementedError
+
+  def write(self, offset, data):
+    length = len(data)
+
+    if self.block_type == SMALL_BLOCK and \
+        offset+length <= BLOCK_SIZE - self.header_size:
+      self.host[self.root][offset:offset+length] = data
+      self.length = l
+      return
+
+    raise NotImplementedError
 
   def get_host_index(self, i):
     if i >= len(self):
