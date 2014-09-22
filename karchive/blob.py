@@ -25,11 +25,11 @@ MEDIUM_BLOCK = 2
 class Blob(BlockDeviceInterface):
   HEADER = dict((k, i) for i, k in enumerate([
     'length',
-    'block_ty0pe',
+    'block_type',
     'checksum', # must be last
   ]))
 
-  def __init__(self, host, root, new):
+  def __init__(self, host, root, new=False):
     if host.block_size != BLOCK_SIZE: raise ValueError
     self.host = host
     self.root = root
@@ -63,10 +63,11 @@ class Blob(BlockDeviceInterface):
     return self.num_blocks
 
   def calc_checksum(self, s):
-    return zlib.crc32(self.host[self.root][s])
+    data = self.host[self.root][s]
+    return zlib.crc32(data)
 
   def verify_checksum(self):
-    checksum = self.calc_checksum(s=slice(0))
+    checksum = self.calc_checksum(s=slice(None))
     if checksum != 558161692:
       raise ValueError('checksum does not match: %d' % checksum)
 
@@ -93,15 +94,12 @@ class Blob(BlockDeviceInterface):
     if not self.host.readonly:
       self.flush()
       self.flush_root()
-    # now properties
-    # self.header.release()
-    # self.index0.release()
 
   @property
   def data(self):
     return self.read(0, self.length)
 
-  @data.set
+  @data.setter
   def set_data(self, data):
     raise NotImplementedError('need to resize first')
     # self.resize(len(data))
@@ -128,23 +126,40 @@ class Blob(BlockDeviceInterface):
       [0:self.header_size]
 
   def get_blocks(self, offset, length):
-      if not (0 <= offset <= self.length):
-        raise ValueError('offset out of bounds')
-      if not (0 <= offset+length <= self.length):
-        raise ValueError('range out of bounds')
+    '''
+    Returns list of (block, offset, length) ranges.
+    blocks are host block ids
+    '''
+    if not (0 <= offset <= self.length):
+      raise ValueError('offset out of bounds')
+    if not (0 <= offset+length <= self.length):
+      raise ValueError('range out of bounds')
 
-      if self.block_type == SMALL_BLOCK:
-        return [(self.root, offset, length)]
+    if self.block_type == SMALL_BLOCK:
+      return [(self.root, offset, length)]
 
-      ranges = []
-      while length:
-        i = offset >> BLOCK_BITS
-        o = offset  & BLOCK_MASK
-        l = min(length, i << BLOCK_BITS + BLOCK_SIZE) - o
-        offset += l
-        length -= l
-        ranges.append((self.get_host_index[i], o, l))
-      return ranges
+    ranges = []
+    while length:
+      i = offset >> BLOCK_BITS
+      o = offset  & BLOCK_MASK
+      l = min(length, i << BLOCK_BITS + BLOCK_SIZE) - o
+      offset += l
+      length -= l
+      ranges.append((self.get_host_index[i], o, l))
+    return ranges
+
+  def read(self, offset, length):
+    r = []
+    for b, o, l in self.get_blocks(offset, length):
+      r.append(self.host[b][o:o+l])
+    return b''.join(r)
+
+  def write(self, offset, data):
+    i = 0
+    for b, o, l in self.get_blocks(offset, len(data)):
+      self.host[b][o:o+l] = data[i:i+l]
+      i += l
+
 
   def get_host_index(self, i):
     # translate a local block number to a host block number
@@ -154,11 +169,12 @@ class Blob(BlockDeviceInterface):
     if i >= len(self):
       raise IndexError('size: %d, i: %d' % (len(self), i))
 
-    i0 = INDEX0(i)
-    i1 = INDEX1(i)
 
     if i < ONE_LEVEL:
-      return self.index0[i0]
+      return self.index0[i]
+    i -= ONE_LEVEL
+    i0 = INDEX0(i)
+    i1 = INDEX1(i)
 
     # TODO cache this
     b1 = self.index0[i0]
@@ -217,3 +233,5 @@ class Blob(BlockDeviceInterface):
       self.host.flush(b)
     self.flush_root()
 
+  def __repr__(self):
+    return '''<Blob(length=%d, block_type=%d, checksum=%s)>''' % tuple(self.header)

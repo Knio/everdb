@@ -16,4 +16,3 @@ def test_db():
   assert db[block] == b'A' * 4096
   db.close()
   os.remove(TEST_NAME)
-

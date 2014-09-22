@@ -1,11 +1,11 @@
 import struct
 
-from .virtualaddress import VirtualAddressSpace
+from .blob import Blob
 
 class Array(object):
   def __init__(self, host, root, format, new):
     self.host = host
-    self.block = VirtualAddressSpace(host, root, new)
+    self.block = Blob(host, root, new)
     self.format = format
     self.item_size = struct.calcsize(format)
     self.items_per_block = self.host.block_size // self.item_size

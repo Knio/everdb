@@ -1,8 +1,8 @@
 import os
 
-
 from .fileblockdevice   import FileBlockDevice
-from .virtualaddress    import VirtualAddressSpace
+
+from .blob              import Blob
 from .array             import Array
 
 class Database(FileBlockDevice):
@@ -12,7 +12,6 @@ class Database(FileBlockDevice):
       self.freelist = []
       assert self.allocate() == 1
     self.freelist = Array(self, 1, 'I', new=self.is_new)
-    self.blockviews = set()
 
   def allocate(self):
     if len(self.freelist):
@@ -28,13 +27,6 @@ class Database(FileBlockDevice):
     # may call allocate()
     self.freelist.append(block)
 
-  def commit(self):
-    for bv in self.blockviews:
-      bv.commit()
-
-  def rollback(self):
-    for bv in self.blockviews:
-      bv.rollback()
-
-
+  def blob(self):
+    return Blob(self, self.allocate(), True)
 

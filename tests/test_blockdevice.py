@@ -5,7 +5,6 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-
 def test_bd():
   bd = karchive.FileBlockDevice(TEST_NAME, block_size=64, overwrite=True)
   assert len(bd) == 1
