@@ -15,7 +15,7 @@ INDEX_MASK = (INDEX_SIZE - 1)
 ONE_LEVEL  = (INDEX_SIZE >> 1)
 
 # logical page number and offset
-BLOCK  = lambda x:(x >> INDEX_BITS)
+BLOCK  = lambda x:(x >> BLOCK_BITS)
 OFFSET = lambda x:(x &  BLOCK_MASK)
 
 # block number to indexes into blob header
@@ -212,8 +212,11 @@ class Blob(BlockDeviceInterface):
 
     # grow
     if self.length < length:
-      self.length = min(num_blocks * BLOCK_SIZE, length)
-      self.
+      next_block = min(num_blocks * BLOCK_SIZE, length)
+      s = slice(OFFSET(self.length), OFFSET(next_block))
+      self.get_block(BLOCK(self.length))[s] =  ZERO_BLOCK[s]
+      self.length = next_block
+
 
     while self.num_blocks < num_blocks and self.num_blocks < ONE_LEVEL:
       b1 = self.host.allocate()
@@ -261,7 +264,6 @@ class Blob(BlockDeviceInterface):
         self.host.free(b1)
 
       self.num_blocks -= 1
-
 
     if data:
       # copy data from small block expansion
