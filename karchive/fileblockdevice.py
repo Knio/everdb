@@ -32,11 +32,8 @@ class FileBlockDevice(BlockDeviceInterface):
 
     self.block_size = block_size
     self.file = f
-    if os.name == 'nt':
-      self.mmap = mmap.mmap(f.fileno(), l,
-          access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
-    else:
-      raise NotImplementedError('implement me')
+    self.mmap = mmap.mmap(f.fileno(), l,
+        access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
     self.view = memoryview(self.mmap)
 
   def flush(self, block=-1):
