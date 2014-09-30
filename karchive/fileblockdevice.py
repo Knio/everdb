@@ -27,6 +27,8 @@ class FileBlockDevice(BlockDeviceInterface):
       self.is_new = True
     else:
       l = os.path.getsize(fname)
+      if l == 0 or l & (block_size - 1):
+        raise ValueError('File Corrupted')
       f = open(fname, readonly and 'rb' or 'r+b')
       self.is_new = False
 
