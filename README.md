@@ -5,6 +5,7 @@ karchive is an embedded database management system library. It operates
 as a library to read and write data structures contained in a single database
 file.
 
+[![Build Status](https://travis-ci.org/Knio/karchive.svg?branch=v3)](https://travis-ci.org/Knio/karchive)
 
 Karchive is:
 * Embedded (your application opens the databae file directly)
