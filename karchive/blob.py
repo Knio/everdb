@@ -146,7 +146,7 @@ class Blob(BlockDeviceInterface):
       length = self.length
     r = []
     for b, o, l in self.get_blocks(offset, length):
-      r.append(self.host[b][o:o+l])
+      r.append(bytes(self.host[b][o:o+l]))
     return b''.join(r)
 
   def write(self, offset, data):
