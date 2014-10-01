@@ -4,7 +4,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def test_freelist():
+def _test_freelist():
   host = karchive.Database(TEST_NAME, overwrite=True)
 
   assert len(host.freelist) == 0

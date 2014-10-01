@@ -138,10 +138,12 @@ class Blob(BlockDeviceInterface):
       l = min(length, i << BLOCK_BITS + BLOCK_SIZE) - o
       offset += l
       length -= l
-      ranges.append((self.get_host_index[i], o, l))
+      ranges.append((self.get_host_index(i), o, l))
     return ranges
 
-  def read(self, offset, length):
+  def read(self, offset=0, length=None):
+    if length is None:
+      length = self.length
     r = []
     for b, o, l in self.get_blocks(offset, length):
       r.append(self.host[b][o:o+l])
@@ -152,11 +154,13 @@ class Blob(BlockDeviceInterface):
     for b, o, l in self.get_blocks(offset, len(data)):
       self.host[b][o:o+l] = data[i:i+l]
       i += l
+    if self.block_type == SMALL_BLOCK:
+      self.checksum = self.calc_checksum(slice(0,-4))
 
   def get_host_index(self, i):
     # translate a local block number to a host block number
     if self.block_type != MEDIUM_BLOCK:
-      raise ValueError('not a block device')
+      raise ValueError('not a regular blob, type=%r' % self.block_type)
 
     if i >= len(self):
       raise IndexError('size: %d, i: %d' % (len(self), i))
@@ -184,18 +188,18 @@ class Blob(BlockDeviceInterface):
     '''
 
     # requested size fits in a small block
-    DATA_LENGTH = BLOCK_SIZE - self.header_size
-    if length <= DATA_LENGTH:
+    MAX_SMALL = BLOCK_SIZE - self.header_size
+    if length <= MAX_SMALL:
       if self.block_type == MEDIUM_BLOCK:
         # grow to medium block
         raise NotImplementedError()
         # free data + page blocks, copy data to root in small block
-        self.block_type = SMALL_BLOCK
       else:
         # small block to small block
         # zero fill from requested length
-        self.host[self.root][length:DATA_LENGTH] = ZERO_BLOCK[length:DATA_LENGTH]
+        self.host[self.root][length:MAX_SMALL] = ZERO_BLOCK[length:MAX_SMALL]
         # TODO: zero fill when growing?
+      self.block_type = SMALL_BLOCK
       self.length = length
       return
 

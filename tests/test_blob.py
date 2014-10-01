@@ -5,7 +5,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def test_db():
+def test_blob():
   db = karchive.Database(TEST_NAME, overwrite=True)
 
   blob = db.blob()
@@ -14,6 +14,7 @@ def test_db():
   blob.write(0, b'AAAAA')
 
   r = blob.root
+  print('blob: %r' % r)
 
   db.close()
   assert os.path.getsize(TEST_NAME) == 12288
@@ -21,6 +22,7 @@ def test_db():
   #############
 
   db = karchive.Database(TEST_NAME)
+  print(''.join('%02x' % i for i in db[2]))
   blob = karchive.Blob(db, r)
   assert blob.read() == b'AAAAA'
   db.close()

@@ -5,7 +5,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def test_db():
+def _test_db():
   db = karchive.Database(TEST_NAME, overwrite=True)
   block = db.allocate()
   db[block] = b'A' * 4096

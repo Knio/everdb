@@ -5,7 +5,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def test_transaction():
+def _test_transaction():
   db = karchive.Database(TEST_NAME, overwrite=True)
   b = db.allocate()
   ar = karchive.Array(db, b, 'I', new=True)

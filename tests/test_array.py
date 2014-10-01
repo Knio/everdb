@@ -4,7 +4,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def test_array():
+def _test_array():
   host = karchive.Database(TEST_NAME, overwrite=True)
   ar = karchive.Array(host, 0, 'I', new=True)
 
