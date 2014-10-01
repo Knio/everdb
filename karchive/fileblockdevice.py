@@ -27,16 +27,15 @@ class FileBlockDevice(BlockDeviceInterface):
       self.is_new = True
     else:
       l = os.path.getsize(fname)
+      if l == 0 or l & (block_size - 1):
+        raise ValueError('File Corrupted')
       f = open(fname, readonly and 'rb' or 'r+b')
       self.is_new = False
 
     self.block_size = block_size
     self.file = f
-    if os.name == 'nt':
-      self.mmap = mmap.mmap(f.fileno(), l,
-          access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
-    else:
-      raise NotImplementedError('implement me')
+    self.mmap = mmap.mmap(f.fileno(), l,
+        access=readonly and mmap.ACCESS_READ or mmap.ACCESS_WRITE)
     self.view = memoryview(self.mmap)
 
   def flush(self, block=-1):
@@ -44,7 +43,7 @@ class FileBlockDevice(BlockDeviceInterface):
         r = self.mmap.flush()
       else:
         r = self.mmap.flush(self.block_size * block, self.block_size)
-      assert r != 0
+      assert r != 0 if os.name == 'nt' else r == 0
 
   def close(self):
     self.view.release()
