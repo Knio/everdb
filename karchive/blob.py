@@ -18,21 +18,21 @@ ONE_LEVEL  = (INDEX_SIZE >> 1)
 BLOCK  = lambda x:(x >> BLOCK_BITS)
 OFFSET = lambda x:(x &  BLOCK_MASK)
 
-# block number to indexes into blob header
+# block pointer to indexes into blob header / page block
 # for multi level page tables
 INDEX0 = lambda x:ONE_LEVEL + (((x - ONE_LEVEL) >> INDEX_BITS) & INDEX_MASK)
 INDEX1 = lambda x:ONE_LEVEL + (((x - ONE_LEVEL))               & INDEX_MASK)
 
 ZERO_BLOCK = b'\0' * BLOCK_SIZE
 
-SMALL_BLOCK = 1
-MEDIUM_BLOCK = 2
+SMALL_BLOB = 1
+REGULAR_BLOB = 2
 
 
 class Blob(BlockDeviceInterface):
   HEADER = dict((k, i) for i, k in enumerate([
     'length',
-    'block_type',
+    'type',
     'checksum', # must be last
   ]))
 
@@ -55,6 +55,11 @@ class Blob(BlockDeviceInterface):
   def header(self):
     return self.host[self.root].cast('I')\
       [INDEX_SIZE - self.header_size:INDEX_SIZE]
+
+  @property
+  def index(self):
+    return self.host[self.root].cast('I')\
+      [0:INDEX_SIZE - self.header_size]
 
   def __getattr__(self, attr):
     if attr not in self.HEADER:
@@ -84,12 +89,12 @@ class Blob(BlockDeviceInterface):
     self.checksum = self.calc_checksum(slice(0,-4))
     print('flush, checksum = %d' % self.checksum)
     self.host.flush(self.root)
-    self.verify_checksum() # TODO: can remove later
+    self.verify_checksum() # TODO: remove later when stable
 
   def init_root(self):
     self.host[self.root] = ZERO_BLOCK
     self.length = 0
-    self.block_type = SMALL_BLOCK
+    self.type = SMALL_BLOB
     self.flush_root()
 
   def flush(self, block=-1):
@@ -113,10 +118,6 @@ class Blob(BlockDeviceInterface):
     self.resize(len(data))
     self.write(0, data)
 
-  @property
-  def index(self):
-    return self.host[self.root].cast('I')\
-      [0:self.header_size]
 
   def get_blocks(self, offset, length):
     '''
@@ -128,17 +129,18 @@ class Blob(BlockDeviceInterface):
     if not (0 <= offset+length <= self.length):
       raise ValueError('range out of bounds')
 
-    if self.block_type == SMALL_BLOCK:
+    if self.type == SMALL_BLOB:
       return [(self.root, offset, length)]
 
     ranges = []
     while length:
-      i = offset >> BLOCK_BITS
-      o = offset  & BLOCK_MASK
-      l = min(length, i << BLOCK_BITS + BLOCK_SIZE) - o
+      b = BLOCK(offset)
+      o = OFFSET(offset)
+      l = min(length, BLOCK_SIZE - o)
+      assert l > 0
       offset += l
       length -= l
-      ranges.append((self.get_host_index(i), o, l))
+      ranges.append((self.get_host_index(b), o, l))
     return ranges
 
   def read(self, offset=0, length=None):
@@ -154,21 +156,22 @@ class Blob(BlockDeviceInterface):
     for b, o, l in self.get_blocks(offset, len(data)):
       self.host[b][o:o+l] = data[i:i+l]
       i += l
-    if self.block_type == SMALL_BLOCK:
+    if self.type == SMALL_BLOB:
       self.checksum = self.calc_checksum(slice(0,-4))
 
   def get_host_index(self, i):
-    # translate a local block number to a host block number
-    if self.block_type != MEDIUM_BLOCK:
-      raise ValueError('not a regular blob, type=%r' % self.block_type)
+    # translate a local block pointer to a host block pointer
+    if self.type != REGULAR_BLOB:
+      raise ValueError('not a regular blob, type=%r' % self.type)
 
-    if i >= len(self):
+    if i >= self.num_blocks:
       raise IndexError('size: %d, i: %d' % (len(self), i))
 
-
+    # one level pointer
     if i < ONE_LEVEL:
       return self.index[i]
 
+    # two level pointer
     i0 = INDEX0(i)
     i1 = INDEX1(i)
 
@@ -188,68 +191,93 @@ class Blob(BlockDeviceInterface):
     '''
 
     # requested size fits in a small block
-    MAX_SMALL = BLOCK_SIZE - self.header_size
+    # handles both grow and shrink operation
+    MAX_SMALL = BLOCK_SIZE - (self.header_size * 4)
     if length <= MAX_SMALL:
-      if self.block_type == MEDIUM_BLOCK:
-        # grow to medium block
-        raise NotImplementedError()
+      if self.type == REGULAR_BLOB:
         # free data + page blocks, copy data to root in small block
+        raise NotImplementedError()
+
       else:
-        # small block to small block
-        # zero fill from requested length
-        self.host[self.root][length:MAX_SMALL] = ZERO_BLOCK[length:MAX_SMALL]
-        # TODO: zero fill when growing?
-      self.block_type = SMALL_BLOCK
+        # already a small block
+        # zero fill from requested length,
+        # to make sure truncated data is not leaked
+        s = slice(length, MAX_SMALL)
+        self.host[self.root][s] = ZERO_BLOCK[s]
+        # no zero fill when growing, since we assume the block was
+        # zeroed either above or on blob creation
+      self.type = SMALL_BLOB
       self.length = length
+      self.flush_root()
       return
 
-    # requested size requires a medium block
-    if self.block_type == SMALL_BLOCK:
-      data = self.data
-      self.block_type = MEDIUM_BLOCK
+    # requested size requires a regular block
+    data = None
+    if self.type == SMALL_BLOB:
+      data = self.read()
+      self.type = REGULAR_BLOB
       self.length = 0
-    else:
-      data = None
 
-    num_blocks = BLOCK(self.length + BLOCK_MASK)
+    num_blocks = BLOCK(length + BLOCK_MASK)
+    cur_blocks = self.num_blocks
+
+    if cur_blocks == num_blocks:
+      # don't need to allocate or free any blocks
+      # zero fill any truncated space
+      b = self.get_block(BLOCK(length-1))
+      s = slice(OFFSET(length), BLOCK_SIZE)
+      b[s] = ZERO_BLOCK[s]
+      self.length = length
+      self.flush_root()
+      return
+
     dirty = set()
 
-    # grow
-    if self.length < length:
-      next_block = min(num_blocks * BLOCK_SIZE, length)
-      s = slice(OFFSET(self.length), OFFSET(next_block))
-      self.get_block(BLOCK(self.length))[s] =  ZERO_BLOCK[s]
-      self.length = next_block
+    # TODO allocate all required blocks at once here
 
-
-    while self.num_blocks < num_blocks and self.num_blocks < ONE_LEVEL:
+    # grow and allocate one level data pointers
+    while cur_blocks < num_blocks and cur_blocks < ONE_LEVEL:
       b1 = self.host.allocate()
       self.host[b1] = ZERO_BLOCK
-      self.index[self.num_blocks] = b1
+      self.index[cur_blocks] = b1
       dirty.add(b1)
+      cur_blocks += 1
+      self.length = cur_blocks * BLOCK_SIZE
 
-    while self.num_blocks < num_blocks:
-
-      i0 = INDEX0(self.num_blocks)
-      i1 = INDEX1(self.num_blocks)
+    # grow and allocate two level data pointers
+    while cur_blocks < num_blocks:
+      i0 = INDEX0(cur_blocks)
+      i1 = INDEX1(cur_blocks)
 
       if self.index0[i0] == 0:
+        # allocate page table block
         b1 = self.host.allocate()
+        print('allocate page: %d' % b1)
         self.host[b1] = ZERO_BLOCK
         self.index0[i0] = b1
 
-      b1 = self.index0[i0]
+      else:
+        b1 = self.index0[i0]
 
+      # allocate data block
       b2 = self.host.allocate()
+      print('allocate data: %d' % b2)
       self.host[b2] = ZERO_BLOCK
+      dirty.add(b2)
+
+      # add pointer to data block into page table
       index1 = self.host[b1].cast('I')
       assert index1[i1] == 0
       index1[i1] = b2
       dirty.add(b1)
-      self.num_blocks += 1
 
-    # shrink
-    while self.num_blocks > num_blocks:
+      cur_blocks += 1
+      self.length = cur_blocks * BLOCK_SIZE
+
+    # shrink and free blocks
+    while cur_blocks > num_blocks and cur_blocks > ONE_LEVEL:
+      raise NotImplementedError
+
       i0 = INDEX0(self.num_blocks - 1)
       i1 = INDEX1(self.num_blocks - 1)
 
@@ -269,10 +297,11 @@ class Blob(BlockDeviceInterface):
 
       self.num_blocks -= 1
 
-    if data:
-      # copy data from small block expansion
-      self.write(0, data)
+    while cur_blocks > num_blocks:
+      raise NotImplementedError
 
+    # still need this because we may have over-allocated
+    # if length was not on a page boundary
     self.length = length
 
     # cleanup
@@ -280,5 +309,10 @@ class Blob(BlockDeviceInterface):
       self.host.flush(b)
     self.flush_root()
 
+    # copy data back from small block expansion
+    if data:
+      self.write(0, data)
+
+
   def __repr__(self):
-    return '''<Blob(length=%d, block_type=%d, checksum=%s)>''' % tuple(self.header)
+    return '''<Blob(length=%d, type=%d, checksum=%s)>''' % tuple(self.header)
