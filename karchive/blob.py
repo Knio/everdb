@@ -21,7 +21,7 @@ OFFSET = lambda x:(x &  BLOCK_MASK)
 # block pointer to indexes into blob header / page block
 # for multi level page tables
 INDEX0 = lambda x:ONE_LEVEL + (((x - ONE_LEVEL) >> INDEX_BITS) & INDEX_MASK)
-INDEX1 = lambda x:ONE_LEVEL + (((x - ONE_LEVEL))               & INDEX_MASK)
+INDEX1 = lambda x:((x - ONE_LEVEL)               & INDEX_MASK)
 
 ZERO_BLOCK = b'\0' * BLOCK_SIZE
 
@@ -176,7 +176,7 @@ class Blob(BlockDeviceInterface):
     i1 = INDEX1(i)
 
     # TODO cache this
-    p1 = self.index[i0]
+    b1 = self.index[i0]
     index1 = self.host[b1].cast('I')
     b2 = index1[i1]
     return b2
@@ -249,27 +249,27 @@ class Blob(BlockDeviceInterface):
       i0 = INDEX0(cur_blocks)
       i1 = INDEX1(cur_blocks)
 
-      if self.index0[i0] == 0:
+      if self.index[i0] == 0:
         # allocate page table block
         b1 = self.host.allocate()
         print('allocate page: %d' % b1)
         self.host[b1] = ZERO_BLOCK
-        self.index0[i0] = b1
+        self.index[i0] = b1
 
       else:
-        b1 = self.index0[i0]
+        b1 = self.index[i0]
 
       # allocate data block
       b2 = self.host.allocate()
-      print('allocate data: %d' % b2)
       self.host[b2] = ZERO_BLOCK
       dirty.add(b2)
 
       # add pointer to data block into page table
-      index1 = self.host[b1].cast('I')
-      assert index1[i1] == 0
-      index1[i1] = b2
+      page = self.host[b1].cast('I')
+      assert page[i1] == 0
+      page[i1] = b2
       dirty.add(b1)
+      del page
 
       cur_blocks += 1
       self.length = cur_blocks * BLOCK_SIZE

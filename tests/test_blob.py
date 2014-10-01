@@ -35,7 +35,7 @@ def test_small_blob():
 
 def test_small_to_regular():
   db = karchive.Database(TEST_NAME, overwrite=True)
-  data = b'Hello World! ' * 1000
+  data = b'Hello World! ' * (1024 * 1024)
 
   blob = db.blob()
 
@@ -47,7 +47,7 @@ def test_small_to_regular():
 
   r = blob.root
   db.close()
-  assert os.path.getsize(TEST_NAME) == 28672
+  assert os.path.getsize(TEST_NAME) == 13656064
 
   #############
 
