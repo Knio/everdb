@@ -43,7 +43,7 @@ class FileBlockDevice(BlockDeviceInterface):
         r = self.mmap.flush()
       else:
         r = self.mmap.flush(self.block_size * block, self.block_size)
-      assert r != 0 if os.name == 'nt' else assert r == 0
+      assert r != 0 if os.name == 'nt' else r == 0
 
   def close(self):
     self.view.release()
