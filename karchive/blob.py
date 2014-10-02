@@ -49,7 +49,10 @@ class Blob(BlockDeviceInterface):
 
   @property
   def num_blocks(self):
-      return BLOCK(self.length + BLOCK_MASK)
+    return BLOCK(self.length + BLOCK_MASK)
+
+  def __len__(self):
+    return self.length
 
   @property
   def header(self):
@@ -259,46 +262,60 @@ class Blob(BlockDeviceInterface):
       else:
         b1 = self.index[i0]
 
+
       # allocate data block
       b2 = self.host.allocate()
       self.host[b2] = ZERO_BLOCK
       dirty.add(b2)
+
+      # TODO: put this in an inner loop so we don't keep loading
+      # the same page table
 
       # add pointer to data block into page table
       page = self.host[b1].cast('I')
       assert page[i1] == 0
       page[i1] = b2
       dirty.add(b1)
+      # need to del local variable so that allocate() works
+      # in the next iteration
       del page
 
       cur_blocks += 1
       self.length = cur_blocks * BLOCK_SIZE
 
-    # shrink and free blocks
+    # shrink and free two level blocks
     while cur_blocks > num_blocks and cur_blocks > ONE_LEVEL:
-      raise NotImplementedError
+      i0 = INDEX0(cur_blocks - 1)
+      i1 = INDEX1(cur_blocks - 1)
 
-      i0 = INDEX0(self.num_blocks - 1)
-      i1 = INDEX1(self.num_blocks - 1)
-
-      b1 = self.index0[i0]
-      index1 = self.host[b1].cast('I')
-      b2 = index1[i1]
+      b1 = self.index[i0]
+      index = self.host[b1].cast('I')
+      b2 = index[i1]
 
       assert b2 != 0
-      index1[i1] = 0
+      index[i1] = 0
       dirty.add(b1)
-      del index1 # must del if free causes a db resize
-      print('b1: %d b2: %d' % (b1, b2))
+      # must del if free causes a db resize
+      del index 
       self.host.free(b2)
+
       if i1 == 0:
-        self.index0[i0] = 0
+        self.index[i0] = 0
         self.host.free(b1)
 
-      self.num_blocks -= 1
+      cur_blocks -= 1
+      self.length = cur_blocks * BLOCK_SIZE
 
+    # shrink one level data blocks
     while cur_blocks > num_blocks:
-      raise NotImplementedError
+      i0 = cur_blocks - 1
+      b1 = self.index[b1]
+      assert b1 != 0
+      self.index[b1] = 0 
+      self.host.free(b1)
+ 
+      cur_blocks -= 1
+      self.length = cur_blocks * BLOCK_SIZE
 
     # still need this because we may have over-allocated
     # if length was not on a page boundary

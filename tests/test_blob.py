@@ -45,6 +45,9 @@ def test_small_to_regular():
   blob.resize(len(data))
   blob.write(0, data)
 
+  # resize to a smaller medium blob
+  blob.resize(8000)
+
   r = blob.root
   db.close()
   assert os.path.getsize(TEST_NAME) == 13656064
@@ -54,7 +57,7 @@ def test_small_to_regular():
   db = karchive.Database(TEST_NAME)
   blob = karchive.Blob(db, r)
 
-  assert blob.read() == data
+  assert blob.read() == data[:8000]
 
   db.close()
   os.remove(TEST_NAME)

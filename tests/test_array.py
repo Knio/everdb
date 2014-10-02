@@ -15,6 +15,8 @@ def _test_array():
   ar.close()
   host.close()
 
+  #############
+
   host = karchive.Database(TEST_NAME, readonly=True)
   ar = karchive.Array(host, 0, 'I', new=False)
 
@@ -24,6 +26,8 @@ def _test_array():
 
   ar.close()
   host.close()
+
+  #############
 
   host = karchive.Database(TEST_NAME)
   ar = karchive.Array(host, 0, 'I', new=False)
