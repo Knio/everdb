@@ -64,6 +64,15 @@ class Blob(BlockDeviceInterface):
     return self.host[self.root].cast('I')\
       [0:INDEX_SIZE - self.header_size]
 
+  @property
+  def data(self):
+    return self.read(0, self.length)
+
+  @data.setter
+  def set_data(self, data):
+    self.resize(len(data))
+    self.write(0, data)
+
   def __getattr__(self, attr):
     if attr not in self.HEADER:
       raise AttributeError(attr)
@@ -111,16 +120,6 @@ class Blob(BlockDeviceInterface):
     if not self.host.readonly:
       self.flush()
       self.flush_root()
-
-  @property
-  def data(self):
-    return self.read(0, self.length)
-
-  @data.setter
-  def set_data(self, data):
-    self.resize(len(data))
-    self.write(0, data)
-
 
   def get_blocks(self, offset, length):
     '''
@@ -187,53 +186,11 @@ class Blob(BlockDeviceInterface):
   def get_block(self, i):
     return self.host.get_block(self.get_host_index(i))
 
-  def resize(self, length):
-    '''
-    Resizes the blob to a given length, by truntating it or
-    extending with zero bytes.
-    '''
+  def allocate(self, num_blocks):
+    if not self.type == REGULAR_BLOB:
+      raise ValueError('Can only allocate blocks on a REGULAR_BLOB')
 
-    # requested size fits in a small block
-    # handles both grow and shrink operation
-    MAX_SMALL = BLOCK_SIZE - (self.header_size * 4)
-    if length <= MAX_SMALL:
-      if self.type == REGULAR_BLOB:
-        # free data + page blocks, copy data to root in small block
-        raise NotImplementedError()
-
-      else:
-        # already a small block
-        # zero fill from requested length,
-        # to make sure truncated data is not leaked
-        s = slice(length, MAX_SMALL)
-        self.host[self.root][s] = ZERO_BLOCK[s]
-        # no zero fill when growing, since we assume the block was
-        # zeroed either above or on blob creation
-      self.type = SMALL_BLOB
-      self.length = length
-      self.flush_root()
-      return
-
-    # requested size requires a regular block
-    data = None
-    if self.type == SMALL_BLOB:
-      data = self.read()
-      self.type = REGULAR_BLOB
-      self.length = 0
-
-    num_blocks = BLOCK(length + BLOCK_MASK)
     cur_blocks = self.num_blocks
-
-    if cur_blocks == num_blocks:
-      # don't need to allocate or free any blocks
-      # zero fill any truncated space
-      b = self.get_block(BLOCK(length-1))
-      s = slice(OFFSET(length), BLOCK_SIZE)
-      b[s] = ZERO_BLOCK[s]
-      self.length = length
-      self.flush_root()
-      return
-
     dirty = set()
 
     # TODO allocate all required blocks at once here
@@ -318,13 +275,63 @@ class Blob(BlockDeviceInterface):
       cur_blocks -= 1
       self.length = cur_blocks * BLOCK_SIZE
 
-    # still need this because we may have over-allocated
-    # if length was not on a page boundary
-    self.length = length
-
     # cleanup
     for b in dirty:
       self.host.flush(b)
+
+  def resize(self, length):
+    '''
+    Resizes the blob to a given length, by truntating it or
+    extending with zero bytes.
+    '''
+
+    # requested size fits in a small block
+    # handles both grow and shrink operation
+    MAX_SMALL = BLOCK_SIZE - (self.header_size * 4)
+    if length <= MAX_SMALL:
+      if self.type == REGULAR_BLOB:
+        # copy data to root in small block
+        data = self.read(0, length)
+        # free data + page blocks,
+        self.allocate(0)
+        self.host[self.root][0:length] = data
+      else:
+        # already a small block
+        # zero fill from requested length,
+        # to make sure truncated data is not leaked
+        s = slice(length, MAX_SMALL)
+        self.host[self.root][s] = ZERO_BLOCK[s]
+        # no zero fill when growing, since we assume the block was
+        # zeroed either above or on blob creation
+      self.type = SMALL_BLOB
+      self.length = length
+      self.flush_root()
+      return
+
+    # requested size requires a regular block
+    data = None
+    if self.type == SMALL_BLOB:
+      data = self.read()
+      self.type = REGULAR_BLOB
+      self.length = 0
+
+    num_blocks = BLOCK(length + BLOCK_MASK)
+    cur_blocks = self.num_blocks
+
+    if cur_blocks == num_blocks:
+      # don't need to allocate or free any blocks
+      # zero fill any truncated space
+      b = self.get_block(BLOCK(length-1))
+      s = slice(OFFSET(length), BLOCK_SIZE)
+      b[s] = ZERO_BLOCK[s]
+      self.length = length
+      self.flush_root()
+      return
+
+    self.allocate(num_blocks)
+    # still need this because we may have over-allocated
+    # if length was not on a page boundary
+    self.length = length
     self.flush_root()
 
     # copy data back from small block expansion

@@ -33,49 +33,83 @@ def test_small_blob():
   os.remove(TEST_NAME)
 
 
-def test_small_to_regular():
-  db = karchive.Database(TEST_NAME, overwrite=True)
-  db.freelist = []
+def blob_tester(f):
+  def wrapper():
+    db = karchive.Database(TEST_NAME, overwrite=True)
+    db.freelist = []
+    blob = db.blob()
+    r = blob.root
 
-  data = b'Hello World! ' * (1024 * 1024)
+    # run the test
+    # returns the expected conterts of the blob
+    data = f(blob)
 
-  blob = db.blob()
+    db.close()
+    db = karchive.Database(TEST_NAME)
+    db.freelist = []
+    blob = karchive.Blob(db, r)
+    assert blob.read() == data
+  return wrapper
 
+
+@blob_tester
+def test_small_small(blob):
   blob.resize(5)
   blob.write(0, b'AAAAA')
+  assert blob.read() == b'AAAAA'
 
+  blob.resize(10)
+  blob.write(5, b'BBBBB')
+  assert blob.read() == b'AAAAABBBBB'
+
+  blob.resize(6)
+  blob.write(2, b'C')
+  assert blob.read() == b'AACAAB'
+
+  return b'AACAAB'
+
+
+@blob_tester
+def test_regular_1(blob):
+  data = b'Hello World! ' * (1024 * 1024)
   blob.resize(len(data))
   blob.write(0, data)
+  assert blob.read() == data
+  return data
 
-  # resize to a smaller medium blob
+@blob_tester
+def test_regular_2(blob):
+  data = b'Hello World! ' * (1024 * 1024)
+  blob.resize(len(data))
+  blob.write(0, data)
   blob.resize(8000)
   assert blob.read() == data[:8000]
-  blob.resize(7000)
-  assert blob.read() == data[:7000]
+  return data[:8000]
 
-  # resize to small blob
-  # blob.resize(4000)
-  # assert blob.read() == data[:4000]
+@blob_tester
+def test_regular_3(blob):
+  data = b'Hello World! ' * (1024)
+  blob.resize(len(data))
+  blob.write(0, data)
+  blob.resize(12000)
+  assert blob.read() == data[:12000]
+  blob.resize(11000)
+  assert blob.read() == data[:11000]
+  return data[:11000]
 
-
-  r = blob.root
-  db.close()
-
-  #############
-
-  db = karchive.Database(TEST_NAME)
-  db.freelist = []
-
-  blob = karchive.Blob(db, r)
-
-  assert blob.read() == data[:7000]
-
-  db.close()
-  os.remove(TEST_NAME)
+@blob_tester
+def test_regular_small(blob):
+  data = b'Hello World! ' * (1024)
+  blob.resize(len(data))
+  blob.write(0, data)
+  blob.resize(4000)
+  assert blob.read() == data[:4000]
+  assert blob.type == 1
+  return data[:4000]
 
 
 if __name__ == '__main__':
-    import cgitb
-    cgitb.enable(format='text')
+  import cgitb
+  cgitb.enable(format='text')
 
-    test_small_to_regular()
+  test_small_to_regular()
