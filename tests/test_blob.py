@@ -35,6 +35,8 @@ def test_small_blob():
 
 def test_small_to_regular():
   db = karchive.Database(TEST_NAME, overwrite=True)
+  db.freelist = []
+
   data = b'Hello World! ' * (1024 * 1024)
 
   blob = db.blob()
@@ -47,14 +49,21 @@ def test_small_to_regular():
 
   # resize to a smaller medium blob
   blob.resize(8000)
+  assert blob.read() == data[:8000]
+
+  # resize to small blob
+  # blob.resize(4000)
+  # assert blob.read() == data[:4000]
+
 
   r = blob.root
   db.close()
-  assert os.path.getsize(TEST_NAME) == 13656064
 
   #############
 
   db = karchive.Database(TEST_NAME)
+  db.freelist = []
+
   blob = karchive.Blob(db, r)
 
   assert blob.read() == data[:8000]

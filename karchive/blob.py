@@ -289,6 +289,7 @@ class Blob(BlockDeviceInterface):
       i1 = INDEX1(cur_blocks - 1)
 
       b1 = self.index[i0]
+      assert b1 != 0
       index = self.host[b1].cast('I')
       b2 = index[i1]
 
@@ -296,7 +297,7 @@ class Blob(BlockDeviceInterface):
       index[i1] = 0
       dirty.add(b1)
       # must del if free causes a db resize
-      del index 
+      del index
       self.host.free(b2)
 
       if i1 == 0:
@@ -309,11 +310,11 @@ class Blob(BlockDeviceInterface):
     # shrink one level data blocks
     while cur_blocks > num_blocks:
       i0 = cur_blocks - 1
-      b1 = self.index[b1]
+      b1 = self.index[i0]
       assert b1 != 0
-      self.index[b1] = 0 
+      self.index[b1] = 0
       self.host.free(b1)
- 
+
       cur_blocks -= 1
       self.length = cur_blocks * BLOCK_SIZE
 
