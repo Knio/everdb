@@ -13,6 +13,14 @@ def _test_array():
   N = 10000
   for i in range(N):
     ar.append(i)
+    assert ar[i] == i
+
+  assert ar.type == 2
+
+  assert len(ar) == N
+  for i in range(N):
+    print('%d: %d' % (i, ar[i]))
+    assert ar[i] == i
 
   ar.close()
   db.close()
@@ -21,10 +29,11 @@ def _test_array():
 
   db = karchive.Database(TEST_NAME, readonly=True)
   db.freelist = []
-  ar = karchive.Array(db, 0, 'I', new=False)
+  ar = karchive.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
   for i in range(N):
+    print('%d: %d' % (i, ar[i]))
     assert ar[i] == i
 
   ar.close()
@@ -34,11 +43,13 @@ def _test_array():
 
   db = karchive.Database(TEST_NAME)
   db.freeelist = []
-  ar = karchive.Array(db, 0, 'I', new=False)
+  ar = karchive.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
   for i in range(N-1, -1, -1):
     assert ar.pop() == i
+
+  assert ar.type == 1
 
 
   ar.close()

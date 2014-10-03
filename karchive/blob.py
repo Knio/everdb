@@ -96,7 +96,7 @@ class Blob(BlockDeviceInterface):
 
   def flush_root(self):
     self.checksum = self.calc_checksum(slice(0,-4))
-    print('flush, checksum = %d' % self.checksum)
+    # print('flush, checksum = %d' % self.checksum)
     self.host.flush(self.root)
     self.verify_checksum() # TODO: remove later when stable
 
@@ -281,7 +281,6 @@ class Blob(BlockDeviceInterface):
     Resizes the blob to a given length, by truntating it or
     extending with zero bytes.
     '''
-
     # requested size fits in a small block
     # handles both grow and shrink operation
     MAX_SMALL = BLOCK_SIZE - (self.header_size * 4)
@@ -305,13 +304,7 @@ class Blob(BlockDeviceInterface):
       self.flush_root()
       return
 
-    # requested size requires a regular block
-    data = None
-    if self.type == SMALL_BLOB:
-      data = self.read()
-      self.type = REGULAR_BLOB
-      self.length = 0
-
+    # requested size requires a regular blob
     num_blocks = BLOCK(length + BLOCK_MASK)
     cur_blocks = self.num_blocks
 
@@ -325,7 +318,15 @@ class Blob(BlockDeviceInterface):
       self.flush_root()
       return
 
+    data = None
+    if self.type == SMALL_BLOB:
+      data = self.read()
+      self.type = REGULAR_BLOB
+      self.length = 0
+
+    # allocate/free blocks
     self.allocate(num_blocks)
+
     # still need this because we may have over-allocated
     # if length was not on a page boundary
     self.length = length
@@ -337,4 +338,4 @@ class Blob(BlockDeviceInterface):
 
 
   def __repr__(self):
-    return '''<Blob(length=%d, type=%d, checksum=%s)>''' % tuple(self.header)
+    return '''<Blob(length=%d, num_blocks=%d, type=%d, checksum=%s)>''' % tuple(self.header)
