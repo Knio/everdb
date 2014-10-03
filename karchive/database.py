@@ -27,6 +27,11 @@ class Database(FileBlockDevice):
     # may call allocate()
     self.freelist.append(block)
 
+
+  # create new objects
   def blob(self):
     return Blob(self, self.allocate(), True)
+
+  def array(self, format):
+    return Array(self, self.allocate(), format, True)
 

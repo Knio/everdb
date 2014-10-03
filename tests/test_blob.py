@@ -11,10 +11,15 @@ def test_small_blob():
   blob = db.blob()
 
   blob.resize(5)
+  assert len(blob) == 5
   blob.write(0, b'AAAAA')
+
   blob.resize(10)
+  assert len(blob) == 10
   blob.write(5, b'BBBBB')
+
   blob.resize(6)
+  assert len(blob) == 6
   blob.write(2, b'C')
 
   r = blob.root
@@ -27,6 +32,7 @@ def test_small_blob():
   db = karchive.Database(TEST_NAME)
   blob = karchive.Blob(db, r)
 
+  assert len(blob) == 6
   assert blob.read() == b'AACAAB'
 
   db.close()
@@ -48,6 +54,7 @@ def blob_tester(f):
     db = karchive.Database(TEST_NAME)
     db.freelist = []
     blob = karchive.Blob(db, r)
+    assert len(blob) == len(data)
     assert blob.read() == data
   return wrapper
 

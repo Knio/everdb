@@ -32,6 +32,7 @@ REGULAR_BLOB = 2
 class Blob(BlockDeviceInterface):
   HEADER = dict((k, i) for i, k in enumerate([
     'length',
+    'num_blocks',
     'type',
     'checksum', # must be last
   ]))
@@ -46,10 +47,6 @@ class Blob(BlockDeviceInterface):
       self.init_root()
     else:
       self.verify_checksum()
-
-  @property
-  def num_blocks(self):
-    return BLOCK(self.length + BLOCK_MASK)
 
   def __len__(self):
     return self.length
@@ -106,15 +103,16 @@ class Blob(BlockDeviceInterface):
   def init_root(self):
     self.host[self.root] = ZERO_BLOCK
     self.length = 0
+    self.num_blocks = 0
     self.type = SMALL_BLOB
     self.flush_root()
 
-  def flush(self, block=-1):
-    if block == -1:
+  def flush(self, b=-1):
+    if b == -1:
       # TODO keep track of just these blocks
       self.host.flush()
     else:
-      self.host.flush(self.get_host_index(block))
+      self.host.flush(self.get_host_index(b))
 
   def close(self):
     if not self.host.readonly:
@@ -139,7 +137,6 @@ class Blob(BlockDeviceInterface):
       b = BLOCK(offset)
       o = OFFSET(offset)
       l = min(length, BLOCK_SIZE - o)
-      assert l > 0
       offset += l
       length -= l
       ranges.append((self.get_host_index(b), o, l))
@@ -202,7 +199,7 @@ class Blob(BlockDeviceInterface):
       self.index[cur_blocks] = b1
       dirty.add(b1)
       cur_blocks += 1
-      self.length = cur_blocks * BLOCK_SIZE
+      self.num_blocks = cur_blocks
 
     # grow and allocate two level data pointers
     while cur_blocks < num_blocks:
@@ -238,7 +235,7 @@ class Blob(BlockDeviceInterface):
       del page
 
       cur_blocks += 1
-      self.length = cur_blocks * BLOCK_SIZE
+      self.num_blocks = cur_blocks
 
     # shrink and free two level blocks
     while cur_blocks > num_blocks and cur_blocks > ONE_LEVEL:
@@ -262,7 +259,7 @@ class Blob(BlockDeviceInterface):
         self.host.free(b1)
 
       cur_blocks -= 1
-      self.length = cur_blocks * BLOCK_SIZE
+      self.num_blocks = cur_blocks
 
     # shrink one level data blocks
     while cur_blocks > num_blocks:
@@ -273,7 +270,7 @@ class Blob(BlockDeviceInterface):
       self.host.free(b1)
 
       cur_blocks -= 1
-      self.length = cur_blocks * BLOCK_SIZE
+      self.num_blocks = cur_blocks
 
     # cleanup
     for b in dirty:
