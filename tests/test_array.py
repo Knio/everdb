@@ -4,20 +4,23 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def _test_array():
+def test_array():
   db = karchive.Database(TEST_NAME, overwrite=True)
   db.freelist = []
   ar = db.array('I')
   r = ar.root
 
-  N = 10000
+  N = 2000
   for i in range(N):
     ar.append(i)
     assert ar[i] == i
 
-  assert ar.type == 2
+  assert ar.type == (N >= 1080 and 2 or 1)
 
   assert len(ar) == N
+
+  print(list(ar.get_block(0)))
+
   for i in range(N):
     print('%d: %d' % (i, ar[i]))
     assert ar[i] == i
@@ -33,7 +36,7 @@ def _test_array():
 
   assert len(ar) == N
   for i in range(N):
-    print('%d: %d' % (i, ar[i]))
+    # print('%d: %d' % (i, ar[i]))
     assert ar[i] == i
 
   ar.close()
