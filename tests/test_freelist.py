@@ -4,7 +4,7 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def _test_freelist():
+def test_freelist():
   host = karchive.Database(TEST_NAME, overwrite=True)
 
   assert len(host.freelist) == 0
@@ -16,16 +16,10 @@ def _test_freelist():
   assert len(host.freelist) == 0
   assert tuple(host.freelist) == ()
 
-  # saves freed block to freelist
-  # allocates 3 -> page table
-  # allocates 4 -> data page
+  # saves freed block to freelist small blob
   host.free(a)
   assert len(host.freelist) == 1
   assert tuple(host.freelist) == (a,)
-  assert host.freelist.block.index0[0] == 3
-  index1 = host[3].cast('I')
-  assert index1[0] == 4
-  del index1
 
   # reuses the freed block
   b = host.allocate()
@@ -46,14 +40,14 @@ def _test_freelist():
   # fill 1 page of freelist
   for i in range(5, 5 + 1024):
     host.free(i)
-  assert host.freelist.block.num_blocks == 1
+  assert host.freelist.num_blocks == 1
 
 
   # next free causes freelist to allocate & pop
   # the last item on freelist = (5 + 1024 - 1)
   for i in range(5 + 1024, 5 + 1024 + 1024):
     host.free(i)
-  assert host.freelist.block.num_blocks == 2
+  assert host.freelist.num_blocks == 2
   index1 = host[3].cast('I')
   assert index1[0] == 4
   assert index1[1] == 5 + 1024 - 1
@@ -64,7 +58,7 @@ def _test_freelist():
   # the last item on freelist = (5 + 1024 + 1024)
   for i in range(5 + 1024 + 1024, 5 + 1024 + 1024 + 1024):
     host.free(i)
-  assert host.freelist.block.num_blocks == 3
+  assert host.freelist.num_blocks == 3
   index1 = host[3].cast('I')
   assert index1[0] == 4
   assert index1[1] == 5 + 1024 - 1
@@ -81,7 +75,7 @@ def _test_freelist():
   while len(host.freelist) > 1024:
     blocks.append(host.allocate())
 
-  assert host.freelist.block.num_blocks == 3
+  assert host.freelist.num_blocks == 3
   assert tuple(host.freelist) == tuple(range(5, 5 + 1024 - 1)) + (5 + 1024,)
   index1 = host[3].cast('I')
   assert index1[0] == 4
@@ -91,7 +85,7 @@ def _test_freelist():
 
   # allocation should cause freelist to free block 5 + 1024 + 1024
   c = host.allocate()
-  assert host.freelist.block.num_blocks == 2
+  assert host.freelist.num_blocks == 2
   assert c == 5 + 1024
   index1 = host[3].cast('I')
   assert index1[0] == 4

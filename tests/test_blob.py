@@ -86,7 +86,7 @@ def test_regular_1(blob):
 
 @blob_tester
 def test_regular_2(blob):
-  data = b'Hello World! ' * (1024 * 1024)
+  data = b'Hello World! ' * (1024 * 128)
   blob.resize(len(data))
   blob.write(0, data)
   blob.resize(8000)
