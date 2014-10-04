@@ -3,6 +3,8 @@ import struct
 from .blob import Blob
 from .blob import SMALL_BLOB, REGULAR_BLOB
 
+MAX_SMALL = (1<<12) - len(Blob.HEADER) * 4
+
 class Array(Blob):
   def __init__(self, host, root, format, new):
     super(Array, self).__init__(host, root, new)
@@ -10,32 +12,39 @@ class Array(Blob):
     self.item_size = struct.calcsize(format)
     self.items_per_block = self.host.block_size // self.item_size
 
-  def get_subblock(self, i):
-    if i >= self.length:
-      raise IndexError
-    j = i // self.items_per_block
-    k = i  % self.items_per_block
-    return self.get_block(j).cast(self.format), j, k
-
   def __len__(self):
     return self.length
 
   def __getitem__(self, i):
+    if not (0 <= i < self.length):
+      raise IndexError()
+
+    j = i // self.items_per_block
+    k = i  % self.items_per_block
+
     if self.type == SMALL_BLOB:
-      if i >= self.length:
-        raise IndexError
-      return self.host[self.root].cast(self.format)[i]
-    b, j, k = self.get_subblock(i)
-    return b[k]
+      b = self.host[self.root]
+    else:
+      b = self.host[self.get_block(j)]
+
+    # TODO cache this
+    return b.cast(self.format)[k]
+
 
   def __setitem__(self, i, v):
+    if not (0 <= i < self.length):
+      raise IndexError()
+
+    j = i // self.items_per_block
+    k = i  % self.items_per_block
+
     if self.type == SMALL_BLOB:
-      if i >= self.length:
-        raise IndexError
-      self.host[self.root].cast(self.format)[i] = v
-      return
-    b, j, k = self.get_subblock(i)
-    b[k] = v
+      b = self.host[self.root]
+    else:
+      b = self.host[self.get_block(j)]
+
+    # TODO cache this
+    b.cast(self.format)[k] = v
 
   def append(self, v):
     l = self.length
