@@ -1,4 +1,5 @@
 import os
+import pdb
 
 import karchive
 
@@ -27,19 +28,46 @@ def test_freelist():
   assert len(host.freelist) == 0
   assert tuple(host.freelist) == ()
 
-  for i in range(5, 5 + 1024):
+  # allocate 3 pages worth
+  for i in range(3, 3 + 1024):
     b = host.allocate()
     assert b == i
-  for i in range(5 + 1024, 5 + 1024 + 1024):
+  for i in range(3 + 1024, 3 + 1024 + 1024):
     b = host.allocate()
     assert b == i
-  for i in range(5 + 1024 + 1024, 5 + 1024 + 1024 + 1024):
+  for i in range(3 + 1024 + 1024, 3 + 1024 + 1024 + 1024):
     b = host.allocate()
     assert b == i
 
-  # fill 1 page of freelist
-  for i in range(5, 5 + 1024):
+  # fill small block of freelist
+  for i in range(3, 3 + 1020):
     host.free(i)
+    assert host.freelist[-1] == i
+  assert host.freelist.type == 1
+  assert host.freelist.num_blocks == 0
+
+  # causes freelist to become regular blob, allocating 3 + 1018
+  pdb.set_trace()
+  host.free(3 + 1020)
+  # freelist.append(1020)
+  #   freelist.resize(1020 * 4)
+  #     freelist.allocate(1)
+  #       host.allocate()
+  #         freelist.pop() -> 1020 + 3
+  #           freelist.resize(1017 * 4)
+  #             needs to stop here
+  #             does not call free
+  #
+  assert host.freelist.type == 2
+  assert host.freelist.index[0] == 1019
+  print(tuple(host.freelist))
+
+  assert tuple(host.freelist) == tuple(range(3, 3 + 1020)) + (3 + 1020,)
+  assert host.freelist.num_blocks == 1
+
+  for i in range(3 + 1018, 3 + 1024):
+    host.free(i)
+    assert host.freelist[-1] == i
   assert host.freelist.num_blocks == 1
 
 

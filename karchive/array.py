@@ -18,8 +18,11 @@ class Array(Blob):
     return self.length
 
   def __getitem__(self, i):
+    if i < 0:
+      i = self.length + i
     if not (0 <= i < self.length):
-      raise IndexError()
+      raise IndexError('index out of range: %d (length: %d)'
+        % (i, self.length))
 
     j = i // self.items_per_block
     k = i  % self.items_per_block
@@ -114,6 +117,7 @@ class Array(Blob):
       self.length = 0
 
     # allocate/free blocks
+    # may call append/pop!
     self.allocate(num_blocks)
 
     # still need this because we may have over-allocated

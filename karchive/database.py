@@ -9,12 +9,13 @@ class Database(FileBlockDevice):
   def __init__(self, *args, **kwargs):
     super(Database, self).__init__(*args, **kwargs)
     if self.is_new:
+      # allocate root for freelist
       self.freelist = []
       assert self.allocate() == 1
     self.freelist = Array(self, 1, 'I', new=self.is_new)
 
   def allocate(self):
-    if len(self.freelist):
+    if self.freelist:
       # may call free()
       block = self.freelist.pop()
     else:
