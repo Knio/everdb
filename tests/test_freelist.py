@@ -47,7 +47,7 @@ def test_freelist():
   assert host.freelist.num_blocks == 0
 
   # causes freelist to become regular blob, allocating 3 + 1018
-  pdb.set_trace()
+  # pdb.set_trace()
   host.free(3 + 1020)
   # freelist.append(1020)
   #   freelist.resize(1020 * 4)
@@ -59,7 +59,7 @@ def test_freelist():
   #             does not call free
   #
   assert host.freelist.type == 2
-  assert host.freelist.index[0] == 1019
+  assert host.freelist.index[0] == 3075
   print(tuple(host.freelist))
 
   assert tuple(host.freelist) == tuple(range(3, 3 + 1020)) + (3 + 1020,)
