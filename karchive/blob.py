@@ -82,12 +82,12 @@ class Blob(BlockDeviceInterface):
     i = self.HEADER[attr]
     self.header[i] = value
 
-  def size(self):
-    return self.length
-
   def calc_checksum(self, s):
     data = self.host[self.root][s]
     return zlib.crc32(data)
+
+  def set_checksum(self):
+    self.checksum = self.calc_checksum(slice(0,-4))
 
   def verify_checksum(self):
     checksum = self.calc_checksum(s=slice(None))
@@ -95,7 +95,7 @@ class Blob(BlockDeviceInterface):
       raise ValueError('checksum does not match: %d' % checksum)
 
   def flush_root(self):
-    self.checksum = self.calc_checksum(slice(0,-4))
+    self.set_checksum()
     # print('flush, checksum = %d' % self.checksum)
     self.host.flush(self.root)
     self.verify_checksum() # TODO: remove later when stable
@@ -321,6 +321,7 @@ class Blob(BlockDeviceInterface):
     data = None
     if self.type == SMALL_BLOB:
       data = self.read()
+      # TODO zero data?
       self.type = REGULAR_BLOB
       self.length = 0
 
