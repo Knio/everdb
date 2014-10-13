@@ -46,9 +46,6 @@ def test_hash():
   for i in range(N-1, -1, -1):
     assert hs.pop(i) == i
 
-  assert hs.type == 1
-
-
   hs.close()
   db.close()
 

@@ -97,10 +97,23 @@ class Hash(Blob):
     if len(data) > 3072:
       self.grow()
 
-    self.verify_checksum()
+  def pop(self, key):
+    b, blob, bucket = self.get_bucket(key)
+
+    value = bucket.pop(key)
+
+    self.size -= 1
+    self.set_checksum()
+
+    data = msgpack.dumps(bucket)
+    blob.resize(len(data))
+    blob.write(0, data)
+
+    # TODO shrink
+    return value
 
   def delete(self, key):
-    raise NotImplementedError
+    self.pop(key)
 
   __getitem__ = get
   __setitem__ = set
