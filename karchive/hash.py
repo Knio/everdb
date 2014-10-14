@@ -1,4 +1,5 @@
 import msgpack
+from collections import defaultdict
 
 from .blob import Blob
 from .blob import BLOCK_SIZE
@@ -40,13 +41,73 @@ increment S by 1
 
 '''
 
+SUB_BUCKET_BITS = 8
+SUB_BUCKET = (1 << SUB_BUCKET_BITS)
+SUB_BUCKET_MASK = (SUB_BUCKET - 1)
 
-class Hash(Blob):
+def next_power_of_2(x):
+  x -= 1
+  x |= x >> 1
+  x |= x >> 2
+  x |= x >> 4
+  x |= x >> 8
+  x |= x >> 16
+  return x + 1
+
+class Bucket(Blob):
+  def get_header(self):
+    if self.num_blocks == 0:
+      b = self.host[self.root].cast('H')
+    else:
+      b = self.host[self.get_host_index(0)].cast
+    return b[0:SUB_BUCKET << 1]
+
+  def get_sub(self, i):
+    h = self.get_header()
+    o, l = h[i << 1], h[i << 1 + 1]
+    if o == 0:
+      return {}
+    return msgpack.loads(self.read(l, o))
+
+  def set_sub(self, i, bucket):
+    data = msgpack.dumps(bucket)
+    d = len(data)
+    h = self.get_header()
+    o, l = h[i << 1], h[i << 1 + 1]
+    if d <= l:
+      h[i << 1 + 1] = len(data)
+      self.write(o, data)
+      return
+    # find and allocate new space for the sub bucket
+    h[i << 1], h[i << 1 + 1] = 0, 0
+    intervals = sorted(zip(h[0::2], h[1::2]))
+    d = next_power_of_2(d)
+    o = SUB_BUCKET << 2
+    for o0, l0 in intervals:
+      if o + d <= o0: break
+      o = o0 + next_power_of_2(l0)
+    h[i << 1], h[i << 1 + 1] = o, len(data)
+    if o + d > self.length:
+      self.resize(o + d)
+    self.write(o, data)
+
+  def items(self):
+    b = {}
+    h = self.get_header(i)
+    for i in range(0, SUB_BUCKET << 1, 2):
+      o, l = h[i], h[i+1]
+      if l == 0: continue
+      b.update(msgpack.loads(self.read(o, l)))
+    return b
+
+
+class Hash(Bucket):
 
   HEADER = dict((k, i) for i, k in enumerate([
     'size',
     'split',
     'level',
+    'length',
     'num_blocks',
     'type',
     'checksum', # must be last
@@ -59,43 +120,37 @@ class Hash(Blob):
     self.step = 0
     self.level = 0
     super(Hash, self).init_root()
-    data = msgpack.dumps({})
-    self.resize(len(data))
-    self.write(0, data)
-    self.flush_root()
 
   def get_bucket(self, key):
     h = hash(key)
-    b = h & ((1 << self.level) - 1)
+    b = h & ((SUB_BUCKET << self.level) - 1)
     if b < self.split:
-      b = h & ((2 << self.level) - 1)
+      b = h & ((SUB_BUCKET << 1 << self.level) - 1)
+
+    s = b & SUB_BUCKET_MASK
+    b >>= SUB_BUCKET_BITS
 
     if self.num_blocks == 0:
       blob = self
     else:
-      blob = Blob(self.host, self.get_host_index(b), False)
-    data = blob.read()
+      blob = Bucket(self.host, self.get_host_index(b), False)
 
-    bucket = msgpack.loads(data)
-    return b, blob, bucket
+    bucket = blob.get_sub(s)
+    return s, blob, bucket
 
   def get(self, key):
-    b, blob, bucket = self.get_bucket(key)
+    s, blob, bucket = self.get_bucket(key)
     return bucket[key]
 
   def set(self, key, value):
-    b, blob, bucket = self.get_bucket(key)
+    s, blob, bucket = self.get_bucket(key)
     if key not in bucket:
       self.size += 1
       self.set_checksum()
 
     bucket[key] = value
-    data = msgpack.dumps(bucket)
-    blob.resize(len(data))
-    blob.write(0, data)
+    blob.set_sub(s, bucket)
 
-    if len(data) > 3072:
-      self.grow()
 
   def pop(self, key):
     b, blob, bucket = self.get_bucket(key)
@@ -126,40 +181,44 @@ class Hash(Blob):
     s = self.split
 
     if self.num_blocks == 0:
-      data = self.read()
+      bucket = super(Bucket, self).items()
       self.type = REGULAR_BLOB
       # TODO zero data?
       self.allocate(2)
-      b0 = Blob(self.host, self.get_host_index(s), True)
+      b0 = Bucket(self.host, self.get_host_index(s), True)
 
     else:
       self.allocate(self.num_blocks + 1)
-      b0 = Blob(self.host, self.get_host_index(s), False)
-      data = b0.read()
+      b0 = Bucket(self.host, self.get_host_index(s), False)
+      bucket = b0.items()
 
-    b1 = Blob(self.host, self.get_host_index(s + (1 << self.level)), True)
+    b1 = Bucket(self.host, self.get_host_index(s + (1 << self.level)), True)
 
-    bucket = msgpack.loads(data)
+    # rehash bucket into b0 and b1
+    bucket0 = defaultdict(dict)
+    bucket1 = defaultdict(dict)
 
-    bucket0 = {}
-    bucket1 = {}
     for k, v in bucket.items():
       h = hash(k)
       b = h & ((2 << self.level) - 1)
+
+      h = hash(key)
+      b = h & ((SUB_BUCKET << 1 << self.level) - 1)
+      u = b & SUB_BUCKET_MASK
+      b >>= SUB_BUCKET_BITS
+
       if b == s:
-        bucket0[k] = v
+        bucket0[u][k] = v
       elif b == (s + (1 << self.level)):
-        bucket1[k] = v
+        bucket1[u][k] = v
       else:
         assert False, b
 
-    data0 = msgpack.dumps(bucket0)
-    b0.resize(len(data0))
-    b0.write(0, data0)
+    for sub, bucket in bucket0:
+      b0.set_sub(sub, bucket0)
 
-    data1 = msgpack.dumps(bucket1)
-    b1.resize(len(data1))
-    b1.write(0, data1)
+    for sub, bucket in bucket1:
+      b1.set_sub(sub, bucket0)
 
     if s + 1 == (1 << self.level):
       self.level += 1

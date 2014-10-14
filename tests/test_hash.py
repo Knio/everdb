@@ -16,9 +16,6 @@ def test_hash():
     assert hs[i] == i
     assert len(hs) == i + 1
 
-  assert hs.type == (N >= 1080 and 2 or 1)
-
-
   hs.close()
   db.close()
 
@@ -52,4 +49,4 @@ def test_hash():
 
 
 if __name__ == '__main__':
-  test_array()
+  test_hash()
