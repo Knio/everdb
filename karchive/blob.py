@@ -125,7 +125,7 @@ class Blob(BlockDeviceInterface):
     blocks are host block ids
     '''
     if not (0 <= offset <= self.length):
-      raise ValueError('offset out of bounds')
+      raise ValueError('offset out of bounds (offset: %d, blob length: %d)' % (offset, self.length))
     if not (0 <= offset+length <= self.length):
       raise ValueError('range out of bounds')
 

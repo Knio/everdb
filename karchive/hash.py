@@ -55,6 +55,10 @@ def next_power_of_2(x):
   return x + 1
 
 class Bucket(Blob):
+  def init_root(self):
+    super(Bucket, self).init_root()
+    self.resize(SUB_BUCKET << 2)
+
   def get_header(self):
     if self.num_blocks == 0:
       b = self.host[self.root].cast('H')
@@ -64,38 +68,44 @@ class Bucket(Blob):
 
   def get_sub(self, i):
     h = self.get_header()
-    o, l = h[i << 1], h[i << 1 + 1]
+    o, l = h[i << 1], h[(i << 1) + 1]
     if o == 0:
       return {}
-    return msgpack.loads(self.read(l, o))
+    return msgpack.loads(self.read(o, l))
 
   def set_sub(self, i, bucket):
     data = msgpack.dumps(bucket)
     d = len(data)
     h = self.get_header()
-    o, l = h[i << 1], h[i << 1 + 1]
+    o, l = h[i << 1], h[(i << 1) + 1]
     if d <= l:
-      h[i << 1 + 1] = len(data)
+      h[(i << 1) + 1] = len(data)
       self.write(o, data)
       return
     # find and allocate new space for the sub bucket
-    h[i << 1], h[i << 1 + 1] = 0, 0
+    h[i << 1], h[(i << 1) + 1] = 0, 0
     intervals = sorted(zip(h[0::2], h[1::2]))
     d = next_power_of_2(d)
     o = SUB_BUCKET << 2
     for o0, l0 in intervals:
+      if l0 == 0: continue
       if o + d <= o0: break
       o = o0 + next_power_of_2(l0)
-    h[i << 1], h[i << 1 + 1] = o, len(data)
+    h[i << 1], h[(i << 1) + 1] = o, len(data)
+    del h
     if o + d > self.length:
+      n = self.num_blocks
       self.resize(o + d)
+      if n == 0 and self.num_blocks:
+        raise NotImplementedError
     self.write(o, data)
+    self.verify_checksum()
 
   def items(self):
     b = {}
     h = self.get_header(i)
     for i in range(0, SUB_BUCKET << 1, 2):
-      o, l = h[i], h[i+1]
+      o, l = h[i], h[i + 1]
       if l == 0: continue
       b.update(msgpack.loads(self.read(o, l)))
     return b
@@ -150,6 +160,8 @@ class Hash(Bucket):
 
     bucket[key] = value
     blob.set_sub(s, bucket)
+    if blob.num_blocks != 0:
+      self.grow()
 
 
   def pop(self, key):
