@@ -126,7 +126,7 @@ class Blob(BlockDeviceInterface):
     '''
     if not (0 <= offset <= self.length):
       raise ValueError('offset out of bounds (offset: %d, blob length: %d)' % (offset, self.length))
-    if not (0 <= offset+length <= self.length):
+    if not (0 <= offset + length <= self.length):
       raise ValueError('range out of bounds')
 
     if self.type == SMALL_BLOB:

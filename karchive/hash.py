@@ -63,7 +63,7 @@ class Bucket(Blob):
     if self.num_blocks == 0:
       b = self.host[self.root].cast('H')
     else:
-      b = self.host[self.get_host_index(0)].cast
+      b = self.host[self.get_host_index(0)].cast('H')
     return b[0:SUB_BUCKET << 1]
 
   def get_sub(self, i):
@@ -96,19 +96,21 @@ class Bucket(Blob):
     if o + d > self.length:
       n = self.num_blocks
       self.resize(o + d)
-      if n == 0 and self.num_blocks:
-        raise NotImplementedError
     self.write(o, data)
     self.verify_checksum()
 
   def items(self):
     b = {}
-    h = self.get_header(i)
+    h = self.get_header()
     for i in range(0, SUB_BUCKET << 1, 2):
-      o, l = h[i], h[i + 1]
+      # o, l = h[i], h[i + 1]
+      o = h[i] & 0xfff
+      l = h[i + 1] & 0xfff
       if l == 0: continue
       b.update(msgpack.loads(self.read(o, l)))
+
     return b
+
 
 
 class Hash(Bucket):
@@ -192,8 +194,8 @@ class Hash(Bucket):
   def grow(self):
     s = self.split
 
-    if self.num_blocks == 0:
-      bucket = super(Bucket, self).items()
+    if s == 0 and self.level == 0:
+      bucket = super(Hash, self).items()
       self.type = REGULAR_BLOB
       # TODO zero data?
       self.allocate(2)
@@ -212,9 +214,6 @@ class Hash(Bucket):
 
     for k, v in bucket.items():
       h = hash(k)
-      b = h & ((2 << self.level) - 1)
-
-      h = hash(key)
       b = h & ((SUB_BUCKET << 1 << self.level) - 1)
       u = b & SUB_BUCKET_MASK
       b >>= SUB_BUCKET_BITS
@@ -226,11 +225,11 @@ class Hash(Bucket):
       else:
         assert False, b
 
-    for sub, bucket in bucket0:
-      b0.set_sub(sub, bucket0)
+    for sub, bucket in bucket0.items():
+      b0.set_sub(sub, bucket)
 
-    for sub, bucket in bucket1:
-      b1.set_sub(sub, bucket0)
+    for sub, bucket in bucket1.items():
+      b1.set_sub(sub, bucket)
 
     if s + 1 == (1 << self.level):
       self.level += 1
