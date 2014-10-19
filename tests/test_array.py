@@ -57,6 +57,7 @@ def test_array():
 
   ar.close()
   db.close()
+  os.remove(TEST_NAME)
 
 
 

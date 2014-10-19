@@ -56,6 +56,9 @@ def blob_tester(f):
     blob = karchive.Blob(db, r)
     assert len(blob) == len(data)
     assert blob.read() == data
+    blob.close()
+    db.close()
+    os.remove(TEST_NAME)
   return wrapper
 
 

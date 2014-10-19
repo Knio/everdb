@@ -129,6 +129,7 @@ def test_freelist():
 
 
   host.close()
+  os.remove(TEST_NAME)
 
 if __name__ == '__main__':
   test_array()

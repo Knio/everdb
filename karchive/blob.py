@@ -54,12 +54,14 @@ class Blob(BlockDeviceInterface):
   @property
   def header(self):
     return self.host[self.root].cast('I')\
-      [INDEX_SIZE - self.header_size:INDEX_SIZE]
+      [INDEX_SIZE - self.header_size:INDEX_SIZE]\
+      .cast('B').cast('I') # TODO python22668 workaround
 
   @property
   def index(self):
     return self.host[self.root].cast('I')\
-      [0:INDEX_SIZE - self.header_size]
+      [0:INDEX_SIZE - self.header_size]\
+      .cast('B').cast('I') # TODO python22668 workaround
 
   @property
   def data(self):
@@ -82,12 +84,12 @@ class Blob(BlockDeviceInterface):
     i = self.HEADER[attr]
     self.header[i] = value
 
-  def size(self):
-    return self.length
-
   def calc_checksum(self, s):
     data = self.host[self.root][s]
     return zlib.crc32(data)
+
+  def set_checksum(self):
+    self.checksum = self.calc_checksum(slice(0,-4))
 
   def verify_checksum(self):
     checksum = self.calc_checksum(s=slice(None))
@@ -95,7 +97,7 @@ class Blob(BlockDeviceInterface):
       raise ValueError('checksum does not match: %d' % checksum)
 
   def flush_root(self):
-    self.checksum = self.calc_checksum(slice(0,-4))
+    self.set_checksum()
     # print('flush, checksum = %d' % self.checksum)
     self.host.flush(self.root)
     self.verify_checksum() # TODO: remove later when stable
@@ -125,8 +127,8 @@ class Blob(BlockDeviceInterface):
     blocks are host block ids
     '''
     if not (0 <= offset <= self.length):
-      raise ValueError('offset out of bounds')
-    if not (0 <= offset+length <= self.length):
+      raise ValueError('offset out of bounds (offset: %d, blob length: %d)' % (offset, self.length))
+    if not (0 <= offset + length <= self.length):
       raise ValueError('range out of bounds')
 
     if self.type == SMALL_BLOB:
@@ -321,6 +323,7 @@ class Blob(BlockDeviceInterface):
     data = None
     if self.type == SMALL_BLOB:
       data = self.read()
+      # TODO zero data?
       self.type = REGULAR_BLOB
       self.length = 0
 
