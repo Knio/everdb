@@ -4,6 +4,7 @@ from .fileblockdevice   import FileBlockDevice
 
 from .blob              import Blob
 from .array             import Array
+from .hash              import Hash
 
 class Database(FileBlockDevice):
   def __init__(self, *args, **kwargs):
@@ -34,4 +35,8 @@ class Database(FileBlockDevice):
 
   def array(self, format):
     return Array(self, self.allocate(), format, True)
+
+  def hash(self):
+    return Hash(self, self.allocate(), True)
+
 

@@ -21,9 +21,6 @@ class BlockDeviceInterface(object):
   def set_block(self, i, v):
     self.get_block(i)[:] = v
 
-  def size(self):
-    raise NotImplementedError
-
   def __len__(self):
     return self.size()
 

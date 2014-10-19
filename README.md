@@ -101,11 +101,23 @@ Page table:
 Arrays
 ------
 
-Arrays are like blobs, but
+Arrays are like blobs.
+
+TODO
 
 
 
+Hashes
+------
 
+A hash table is implemented using a Blob, where each 4KB block in the blob
+is a hash bucket. Each bucket is further split into 128 sub-buckets,
+which are allocated via a 128 {uint16 start, end} header at the start of
+the bucket.
+
+Buckets are allocated using linear hashing.
+
+Assume ~16 bytes per bucket (modes 0, ~16, ~32, ~48)
 
 
 
