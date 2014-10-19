@@ -58,13 +58,15 @@ class Bucket(Blob):
   def init_root(self):
     super(Bucket, self).init_root()
     self.resize(SUB_BUCKET << 2)
+    self.get_header()[:] == [0] * SUB_BUCKET
 
   def get_header(self):
     if self.num_blocks == 0:
-      b = self.host[self.root].cast('H')
+      b = self.host[self.root]
     else:
-      b = self.host[self.get_host_index(0)].cast('H')
-    return b[0:SUB_BUCKET << 1]
+      b = self.host[self.get_host_index(0)]
+    return b.cast('H')[0:SUB_BUCKET << 1]\
+      .cast('B').cast('H') # TODO python22668 workaround
 
   def get_sub(self, i):
     h = self.get_header()
@@ -103,12 +105,9 @@ class Bucket(Blob):
     b = {}
     h = self.get_header()
     for i in range(0, SUB_BUCKET << 1, 2):
-      # o, l = h[i], h[i + 1]
-      o = h[i] & 0xfff
-      l = h[i + 1] & 0xfff
+      o, l = h[i], h[i + 1]
       if l == 0: continue
       b.update(msgpack.loads(self.read(o, l)))
-
     return b
 
 
@@ -135,9 +134,10 @@ class Hash(Bucket):
 
   def get_bucket(self, key):
     h = hash(key)
-    b = h & ((SUB_BUCKET << self.level) - 1)
-    if b < self.split:
-      b = h & ((SUB_BUCKET << 1 << self.level) - 1)
+    b = h & ((SUB_BUCKET << 1 << self.level) - 1)
+    if b >= ((1 << self.level) + self.split) << SUB_BUCKET_BITS:
+      # bucket has no yet been split
+      b = h & ((SUB_BUCKET << self.level) - 1)
 
     s = b & SUB_BUCKET_MASK
     b >>= SUB_BUCKET_BITS
@@ -162,21 +162,18 @@ class Hash(Bucket):
 
     bucket[key] = value
     blob.set_sub(s, bucket)
-    if blob.num_blocks != 0:
+    if blob.length >= 3072:
       self.grow()
 
 
   def pop(self, key):
-    b, blob, bucket = self.get_bucket(key)
+    s, blob, bucket = self.get_bucket(key)
 
     value = bucket.pop(key)
+    blob.set_sub(s, bucket)
 
     self.size -= 1
     self.set_checksum()
-
-    data = msgpack.dumps(bucket)
-    blob.resize(len(data))
-    blob.write(0, data)
 
     # TODO shrink
     return value
@@ -192,6 +189,9 @@ class Hash(Bucket):
     return self.size
 
   def grow(self):
+    # import pdb
+    # pdb.set_trace()
+
     s = self.split
 
     if s == 0 and self.level == 0:

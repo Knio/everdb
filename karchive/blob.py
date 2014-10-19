@@ -54,12 +54,14 @@ class Blob(BlockDeviceInterface):
   @property
   def header(self):
     return self.host[self.root].cast('I')\
-      [INDEX_SIZE - self.header_size:INDEX_SIZE]
+      [INDEX_SIZE - self.header_size:INDEX_SIZE]\
+      .cast('B').cast('I') # TODO python22668 workaround
 
   @property
   def index(self):
     return self.host[self.root].cast('I')\
-      [0:INDEX_SIZE - self.header_size]
+      [0:INDEX_SIZE - self.header_size]\
+      .cast('B').cast('I') # TODO python22668 workaround
 
   @property
   def data(self):
