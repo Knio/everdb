@@ -5,9 +5,16 @@ from .blob import SMALL_BLOB, REGULAR_BLOB
 from .blob import BLOCK, OFFSET
 from .blob import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
 
-MAX_SMALL = (1<<12) - len(Blob.HEADER) * 4
-
 class Array(Blob):
+
+  HEADER = dict((k, i) for i, k in enumerate([
+    'capacity',
+    'length',
+    'num_blocks',
+    'type',
+    'checksum', # must be last
+  ]))
+
   def __init__(self, host, root, format, new):
     super(Array, self).__init__(host, root, new)
     self.format = format
@@ -51,11 +58,16 @@ class Array(Blob):
     # TODO cache this
     b.cast(self.format)[k] = v
 
+  def extend(self, iter):
+    raise NotImplementedError
+
   def append(self, v):
     l = self.length
-    j = l + 1
-    self.resize(j)
+    assert self.capacity >= l + 1
+    self.length += 1
     self[l] = v
+    # ensure 1 extra slot
+    self.resize(l + 2)
 
   def pop(self):
     if not self.length:
@@ -63,16 +75,16 @@ class Array(Blob):
     l = self.length
     j = l - 1
     x = self[j]
-    self.resize(j)
+    self.resize(l + 2)
     return x
 
-  def resize(self, items):
+  def resize(self, capacity):
     '''
     Resizes the array to a given size (in elements, not bytes)
     '''
     # requested size fits in a small block
     # handles both grow and shrink operation
-    length = items * self.item_size
+    length = capacity * self.item_size
 
     if length <= MAX_SMALL:
       if self.type == REGULAR_BLOB:
@@ -90,7 +102,7 @@ class Array(Blob):
         # no zero fill when growing, since we assume the block was
         # zeroed either above or on blob creation
       self.type = SMALL_BLOB
-      self.length = items
+      self.capacity = items
       self.flush_root()
       return
 
@@ -106,7 +118,7 @@ class Array(Blob):
         b = self.get_block(i)
         s = slice(OFFSET(length), BLOCK_SIZE)
         b[s] = ZERO_BLOCK[s]
-      self.length = items
+      self.capacity = items
       self.flush_root()
       return
 
@@ -114,7 +126,7 @@ class Array(Blob):
     if self.type == SMALL_BLOB:
       data = bytes(self.host[self.root][0:self.length * self.item_size])
       self.type = REGULAR_BLOB
-      self.length = 0
+      self.capacity = 0
 
     # allocate/free blocks
     # may call append/pop!
