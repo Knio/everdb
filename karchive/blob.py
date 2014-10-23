@@ -268,7 +268,7 @@ class Blob(BlockDeviceInterface):
       i0 = cur_blocks - 1
       b1 = self.index[i0]
       assert b1 != 0
-      self.index[b1] = 0
+      self.index[i0] = 0
       self.host.free(b1)
 
       cur_blocks -= 1

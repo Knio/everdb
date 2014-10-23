@@ -19,10 +19,10 @@ def test_array():
 
   assert len(ar) == N
 
-  print(list(ar.get_block(0)))
+  # print(list(ar.get_block(0)))
 
   for i in range(N):
-    print('%d: %d' % (i, ar[i]))
+    # print('%d: %d' % (i, ar[i]))
     assert ar[i] == i
 
   ar.close()
@@ -50,7 +50,9 @@ def test_array():
 
   assert len(ar) == N
   for i in range(N-1, -1, -1):
+    assert ar[i] == i
     assert ar.pop() == i
+    assert ar.length == i
 
   assert ar.type == 1
 

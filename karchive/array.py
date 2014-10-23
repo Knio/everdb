@@ -16,15 +16,24 @@ class Array(Blob):
   ]))
 
   def __init__(self, host, root, format, new):
-    super(Array, self).__init__(host, root, new)
     self.format = format
     self.item_size = struct.calcsize(format)
-    self.items_per_block = self.host.block_size // self.item_size
+    self.items_per_block = BLOCK_SIZE // self.item_size
+    super(Array, self).__init__(host, root, new)
+
+  def init_root(self):
+    super(Array, self).init_root()
+    MAX_SMALL = (BLOCK_SIZE - 4 * len(Array.HEADER)) // self.item_size
+    self.capacity = MAX_SMALL
+    self.flush_root()
 
   def __len__(self):
     return self.length
 
   def __getitem__(self, i):
+    if isinstance(i, slice):
+      return self.getslice(i)
+
     if i < 0:
       i = self.length + i
     if not (0 <= i < self.length):
@@ -42,8 +51,10 @@ class Array(Blob):
     # TODO cache this
     return b.cast(self.format)[k]
 
-
   def __setitem__(self, i, v):
+    if isinstance(i, slice):
+      return self.setslice(i, v)
+
     if not (0 <= i < self.length):
       raise IndexError()
 
@@ -58,6 +69,12 @@ class Array(Blob):
     # TODO cache this
     b.cast(self.format)[k] = v
 
+  def getslice(self, i):
+    raise NotImplementedError
+
+  def setslice(self, i):
+    raise NotImplementedError
+
   def extend(self, iter):
     raise NotImplementedError
 
@@ -67,7 +84,8 @@ class Array(Blob):
     self.length += 1
     self[l] = v
     # ensure 1 extra slot
-    self.resize(l + 2)
+    if self.capacity < l + 2:
+      self.resize(l + 2)
 
   def pop(self):
     if not self.length:
@@ -75,7 +93,9 @@ class Array(Blob):
     l = self.length
     j = l - 1
     x = self[j]
-    self.resize(l + 2)
+    self.length = j
+    if self.capacity > l + 2:
+      self.resize(l + 2)
     return x
 
   def resize(self, capacity):
@@ -86,6 +106,7 @@ class Array(Blob):
     # handles both grow and shrink operation
     length = capacity * self.item_size
 
+    MAX_SMALL = (BLOCK_SIZE - 4 * len(Array.HEADER))
     if length <= MAX_SMALL:
       if self.type == REGULAR_BLOB:
         # copy data to root in small block
@@ -102,7 +123,7 @@ class Array(Blob):
         # no zero fill when growing, since we assume the block was
         # zeroed either above or on blob creation
       self.type = SMALL_BLOB
-      self.capacity = items
+      self.capacity = capacity
       self.flush_root()
       return
 
@@ -118,25 +139,33 @@ class Array(Blob):
         b = self.get_block(i)
         s = slice(OFFSET(length), BLOCK_SIZE)
         b[s] = ZERO_BLOCK[s]
-      self.capacity = items
+      self.capacity = capacity
       self.flush_root()
       return
 
     data = None
+    l = self.length
     if self.type == SMALL_BLOB:
       data = bytes(self.host[self.root][0:self.length * self.item_size])
       self.type = REGULAR_BLOB
+      self.length = 0
       self.capacity = 0
+      # def _pop():
+      #   return data.pop()
+      # self.pop = _pop
 
     # allocate/free blocks
     # may call append/pop!
     self.allocate(num_blocks)
 
-    # still need this because we may have over-allocated
-    # if length was not on a page boundary
-    self.length = items
-    self.flush_root()
 
     # copy data back from small block expansion
     if data:
       self.get_block(0)[0:len(data)] = data
+      self.length = l
+      # del self.pop
+
+    # still need this because we may have over-allocated
+    # if length was not on a page boundary
+    self.capacity = capacity
+    self.flush_root()
