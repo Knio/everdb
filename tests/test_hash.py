@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
@@ -43,9 +45,13 @@ def test_hash():
   for i in range(N-1, -1, -1):
     assert hs.pop(i) == i
 
+  with pytest.raises(KeyError):
+    x = hs.pop(1)
+
   hs.close()
   db.close()
 
+  os.remove(TEST_NAME)
 
 
 if __name__ == '__main__':

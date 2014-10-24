@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
@@ -9,6 +11,16 @@ def test_array():
   db.freelist = []
   ar = db.array('I')
   r = ar.root
+
+  with pytest.raises(IndexError):
+    x = ar.pop()
+
+  with pytest.raises(NotImplementedError):
+    x = ar[0:1]
+
+  with pytest.raises(NotImplementedError):
+    ar[0:1] = [1]
+
 
   N = 2000
   for i in range(N):
@@ -55,6 +67,30 @@ def test_array():
     assert ar.length == i
 
   assert ar.type == 1
+
+
+  ar.close()
+  db.close()
+  os.remove(TEST_NAME)
+
+
+def test_todo():
+  db = karchive.Database(TEST_NAME, overwrite=True)
+  db.freelist = []
+  ar = db.array('I')
+  r = ar.root
+
+  with pytest.raises(IndexError):
+    x = ar.pop()
+
+  with pytest.raises(NotImplementedError):
+    x = ar[0:1]
+
+  with pytest.raises(NotImplementedError):
+    ar[0:1] = [1]
+
+  with pytest.raises(NotImplementedError):
+    ar.extend([1])
 
 
   ar.close()

@@ -110,6 +110,8 @@ def test_freelist():
 
 
 
+  host.close()
+  os.remove(TEST_NAME)
   return
   assert False
 

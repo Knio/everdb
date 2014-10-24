@@ -72,7 +72,7 @@ class Array(Blob):
   def getslice(self, i):
     raise NotImplementedError
 
-  def setslice(self, i):
+  def setslice(self, i, v):
     raise NotImplementedError
 
   def extend(self, iter):

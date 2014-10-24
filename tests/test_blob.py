@@ -2,6 +2,8 @@ import os
 import time
 import random
 
+import pytest
+
 import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
@@ -9,6 +11,21 @@ TEST_NAME = 'test_archive.deleteme.dat'
 def test_small_blob():
   db = karchive.Database(TEST_NAME, overwrite=True)
   blob = db.blob()
+
+  with pytest.raises(AttributeError):
+    x = blob.foobar
+
+  with pytest.raises(ValueError):
+    x = blob.get_blocks(1, 0)
+
+  with pytest.raises(ValueError):
+    x = blob.get_blocks(0, 1)
+
+  with pytest.raises(ValueError):
+    x = blob.get_host_index(0)
+
+  with pytest.raises(ValueError):
+    x = blob.allocate(0)
 
   blob.resize(5)
   assert len(blob) == 5
@@ -34,6 +51,16 @@ def test_small_blob():
 
   assert len(blob) == 6
   assert blob.read() == b'AACAAB'
+
+  blob.resize(1024 * 1024 * 32)
+  blob.resize(1024 * 1024 * 8)
+  blob.resize(4096)
+
+  with pytest.raises(IndexError):
+    x = blob.get_host_index(1)
+
+  blob.resize(0)
+  assert blob.read() == b''
 
   db.close()
   os.remove(TEST_NAME)
