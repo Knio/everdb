@@ -6,7 +6,7 @@ as a library to read and write data structures contained in a single database
 file.
 
 [![Build Status](https://travis-ci.org/Knio/karchive.svg?branch=v3)](https://travis-ci.org/Knio/karchive)
-[![Coverage Status](https://img.shields.io/coveralls/Knio/karchive.svg?branch=v3)](https://coveralls.io/r/Knio/karchive?branch=v3)
+[![Coverage Status](https://img.shields.io/coveralls/Knio/karchive.svg)](https://coveralls.io/r/Knio/karchive?branch=v3)
 
 Karchive is:
 * Embedded (your application opens the databae file directly)
