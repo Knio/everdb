@@ -1,9 +1,8 @@
 karchive
 ========
 
-karchive is an embedded database management system library. It operates
-as a library to read and write data structures contained in a single database
-file.
+karchive is an embedded database system. It operates
+as a programming library with APIs to read, write, and access data structures contained in a single database file.
 
 [![Build Status](https://travis-ci.org/Knio/karchive.svg?branch=v3)](https://travis-ci.org/Knio/karchive)
 [![Coverage Status](https://img.shields.io/coveralls/Knio/karchive.svg)](https://coveralls.io/r/Knio/karchive?branch=v3)
@@ -12,42 +11,86 @@ Karchive is:
 * Embedded (your application opens the databae file directly)
 * Single-user (only one process can open the file at a time)
 * ACID complient (supports transactions and guarantees data reliability)
-* Efficient (datastructures are fase, all operations do not need to load
-    large structures into memory, and )
+* Efficient (datastructures are fast, all operations do not need to load
+    large structures into memory, optimized for 4K RAM/disk sizes, etc)
+
 
 Karchive is NOT:
 * Client-server (you do not connect to a database server)
-* SQL (you operate on the database structures directly though a programming API,
-    not by writing SQL queries)
+* SQL (or NoSQL) (you operate on the database structures directly though a programming API, not by writing queries in SQL or JS)
 
 
+TODO
+====
 
-
+- [ ] Benchmarks for Blob, Array, Hash
+- [ ] Benchmark page comparing sqlite, bsd, etc
+- [ ] Caching to speed up benchmarks
+- [ ] Save format string in Array header
+- [ ] Store explicit db data structures in hash values (`h[x] = Blob()`)
+- [ ] Store implicit large data in hash values (`h[x] = 'xxx'*(2**32)`)
+- [ ] File header with db state and version
+- [ ] Fixed-length struct array datatype
+- [ ] Transacions & ACID
 
 Datastructures
 ==============
 
-karachive supports blobs, lists, and hash tables.
+karachive supports three data structures: Blobs, Arrays, and Hashes.
+
 
 Blobs
 -----
 
-A blob is a an arbitrary sized array of bytes. The maximum size of a blob is
-slightly less than 4GB. Blobs can be accessed similar to a regular file or a
-Python `bytearray`. Indexing a blob (blob[x] = 'a') is efficient and does not
-need to load the whole blob data into memory. Blobs can be efficiently appended
-to. An empty blob has an overhead of about 12KB on disk (3 pages).
+A Blob is a an arbitrary sized array of bytes, similar to the `bytrarray` Python type. The maximum size of a blob is slightly under 2GiB (2128609280B).
+Blobs can be accessed similar to a `bytearray` or `file` object.
+Indexing, slicing, and appending to a blob is space efficient and only loads the required data into memory, and not the entire blob. An empty blob takes a minimum of 4Kib (1 page) of space in memory and on disk.
 
-Blob(db) -> Blob object
+```python
+blob = db.blob() -> Blob object
 
-blob[i] -> byte
+blob[i] -> <byte>
 blob[j] = y
 
-blob[i:j] -> bytestr
+blob[i:j] -> <bytestr>
 blob[i:j] = x
 
+blob.read(offset, length) -> <bytes>
+blob.write(offset, x)
+blob.append(x)
+
 blob.resize(n) # make blob n bytes long
-blob.append(bytestr) # append bytes to end of blob, causing it to grow
+blob.append(bytestr) # append bytes to end of blob, causing it to grow in size
+
+```
+
+Arrays
+------
+
+An Array is similar to a blob, but instead of bytes, the content can be any single format supported by the `struct` module. Arrays have the same API as Python `list`, except that items can only be popped or inserted on the end of the array.
+
+```python
+array = db.array('I') # unsigned int32
+
+array[i] -> <int>
+array[j] = y
+
+array[i:j] -> <list>
+array[i:j] = x
+
+array.pop() # remove last item
+array.push(x)
+
+array.length -> <int>
+array.format -> 'I'
+array.item_size -> 4
+```
+
+Hashes
+------
+
+TODO
+
 
 
 Implementation

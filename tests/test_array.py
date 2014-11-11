@@ -8,7 +8,7 @@ TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_array():
   db = karchive.Database(TEST_NAME, overwrite=True)
-  db.freelist = []
+  # db.freelist = []
   ar = db.array('I')
   r = ar.root
 
@@ -43,7 +43,7 @@ def test_array():
   #############
 
   db = karchive.Database(TEST_NAME, readonly=True)
-  db.freelist = []
+  # db.freelist = []
   ar = karchive.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
@@ -57,7 +57,7 @@ def test_array():
   #############
 
   db = karchive.Database(TEST_NAME)
-  db.freeelist = []
+  # db.freeelist = []
   ar = karchive.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
@@ -76,7 +76,7 @@ def test_array():
 
 def test_todo():
   db = karchive.Database(TEST_NAME, overwrite=True)
-  db.freelist = []
+  # db.freelist = []
   ar = db.array('I')
   r = ar.root
 
