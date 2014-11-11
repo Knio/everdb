@@ -12,6 +12,10 @@ def test_array():
   ar = db.array('I')
   r = ar.root
 
+  assert ar.length == 0
+  with pytest.raises(IndexError):
+    x = ar[0]
+
   with pytest.raises(IndexError):
     x = ar.pop()
 

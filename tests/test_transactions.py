@@ -5,18 +5,18 @@ import karchive
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
-def _test_transaction():
+def test_transaction():
   db = karchive.Database(TEST_NAME, overwrite=True)
   b = db.allocate()
   ar = karchive.Array(db, b, 'I', new=True)
 
   assert len(ar) == 0
 
-  # ar.append(1)
-  # assert len(ar) == 1
+  ar.append(1)
+  assert len(ar) == 1
 
-  # db.rollback()
-  # assert len(ar) == 0
+  db.rollback()
+  assert len(ar) == 0
 
   ar.append(1)
   assert len(ar) == 1

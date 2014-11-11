@@ -40,4 +40,9 @@ class Database(FileBlockDevice):
   def hash(self):
     return Hash(self, self.allocate(), True)
 
-
+  # transactions
+  def rollback(self):
+    # free all allocated pages since the last commit
+    # clear free-on-commit page list
+    # reset all objects to point to old pages
+    raise NotImplementedError
