@@ -13,11 +13,11 @@ install:
 # command to run tests, e.g. python setup.py test
 script:
     - python setup.py sdist --format=zip
-    - pip install dist/karchive*.zip
+    - pip install dist/everdb*.zip
     - py.test
 
 after_success:
     - pip install coveralls coverage
-    - PYTHONPATH=. coverage run --source=karchive -m pytest
+    - PYTHONPATH=. coverage run --source=everdb -m pytest
     - coverage report
     - coveralls

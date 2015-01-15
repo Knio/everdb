@@ -2,12 +2,12 @@ import os
 
 import pytest
 
-import karchive
+import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_hash():
-  db = karchive.Database(TEST_NAME, overwrite=True)
+  db = everdb.Database(TEST_NAME, overwrite=True)
   db.freelist = []
   hs = db.hash()
   r = hs.root
@@ -23,9 +23,9 @@ def test_hash():
 
   #############
 
-  db = karchive.Database(TEST_NAME, readonly=True)
+  db = everdb.Database(TEST_NAME, readonly=True)
   db.freelist = []
-  hs = karchive.Hash(db, r, new=False)
+  hs = everdb.Hash(db, r, new=False)
 
   assert len(hs) == N
   for i in range(N):
@@ -37,9 +37,9 @@ def test_hash():
 
   #############
 
-  db = karchive.Database(TEST_NAME)
+  db = everdb.Database(TEST_NAME)
   db.freeelist = []
-  hs = karchive.Hash(db, r, new=False)
+  hs = everdb.Hash(db, r, new=False)
 
   assert len(hs) == N
   for i in range(N-1, -1, -1):

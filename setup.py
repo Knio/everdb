@@ -1,18 +1,18 @@
 __license__ = '''
-This file is part of karchive.
+This file is part of everdb.
 
-karchive is free software: you can redistribute it and/or modify
+everdb is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as
 published by the Free Software Foundation, either version 3 of
 the License, or (at your option) any later version.
 
-karchive is distributed in the hope that it will be useful, but
+everdb is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General
-Public License along with karchive.  If not, see
+Public License along with everdb.  If not, see
 <http://www.gnu.org/licenses/>.
 '''
 # pylint: disable=bad-whitespace
@@ -22,7 +22,7 @@ Public License along with karchive.  If not, see
 from setuptools import setup
 
 import imp
-_version = imp.load_source("karchive._version", "karchive/_version.py")
+_version = imp.load_source("everdb._version", "everdb/_version.py")
 
 long_description = open('README.md').read()
 
@@ -38,14 +38,14 @@ long_description = open('README.md').read()
 #   traceback.print_exc()
 
 setup(
-  name    = 'karchive',
+  name    = 'everdb',
   version = _version.__version__,
   author  = 'Tom Flanagan and knivey',
   author_email = 'tom@zkpq.ca',
   license = 'LICENSE.txt',
-  url     = 'http://github.com/Knio/karchive/',
+  url     = 'http://github.com/Knio/everdb/',
 
-  description      = 'karchive is a fast embedded database for python',
+  description      = 'everdb is a fast embedded database for python',
   long_description = long_description,
   keywords         = 'python database emedded',
 
@@ -62,7 +62,7 @@ setup(
     'Topic :: Database :: Database Engines/Servers',
   ],
 
-  packages = ['karchive'],
+  packages = ['everdb'],
   include_package_data = True,
   install_requires=['msgpack-python',]
 )

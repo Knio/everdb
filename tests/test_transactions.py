@@ -1,14 +1,14 @@
 import os
 import time
 
-import karchive
+import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def _test_transaction():
-  db = karchive.Database(TEST_NAME, overwrite=True)
+  db = everdb.Database(TEST_NAME, overwrite=True)
   b = db.allocate()
-  ar = karchive.Array(db, b, 'I', new=True)
+  ar = everdb.Array(db, b, 'I', new=True)
 
   assert len(ar) == 0
 
@@ -26,8 +26,8 @@ def _test_transaction():
   ar.close()
   db.close()
 
-  db = karchive.Database(TEST_NAME)
-  ar = karchive.Array(db, b, 'I', new=False)
+  db = everdb.Database(TEST_NAME)
+  ar = everdb.Array(db, b, 'I', new=False)
   assert len(ar) == 1
   assert ar.pop() == 1
 

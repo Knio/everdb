@@ -1,12 +1,12 @@
 import os
 import pdb
 
-import karchive
+import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_freelist():
-  host = karchive.Database(TEST_NAME, overwrite=True)
+  host = everdb.Database(TEST_NAME, overwrite=True)
 
   assert len(host.freelist) == 0
   assert tuple(host.freelist) == ()

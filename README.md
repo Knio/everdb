@@ -1,11 +1,11 @@
-karchive
+everdb
 ========
 
-karchive is an embedded database system. It operates
+everdb is an embedded database system. It operates
 as a programming library with APIs to read, write, and access data structures contained in a single database file.
 
-[![Build Status](https://travis-ci.org/Knio/karchive.svg?branch=v3)](https://travis-ci.org/Knio/karchive)
-[![Coverage Status](https://img.shields.io/coveralls/Knio/karchive.svg)](https://coveralls.io/r/Knio/karchive?branch=v3)
+[![Build Status](https://travis-ci.org/Knio/everdb.svg?branch=v3)](https://travis-ci.org/Knio/everdb)
+[![Coverage Status](https://img.shields.io/coveralls/Knio/everdb.svg)](https://coveralls.io/r/Knio/everdb?branch=v3)
 
 Karchive is:
 * Embedded (your application opens the databae file directly)

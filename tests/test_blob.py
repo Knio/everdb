@@ -4,12 +4,12 @@ import random
 
 import pytest
 
-import karchive
+import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_small_blob():
-  db = karchive.Database(TEST_NAME, overwrite=True)
+  db = everdb.Database(TEST_NAME, overwrite=True)
   blob = db.blob()
 
   with pytest.raises(AttributeError):
@@ -46,8 +46,8 @@ def test_small_blob():
 
   #############
 
-  db = karchive.Database(TEST_NAME)
-  blob = karchive.Blob(db, r)
+  db = everdb.Database(TEST_NAME)
+  blob = everdb.Blob(db, r)
 
   assert len(blob) == 6
   assert blob.read() == b'AACAAB'
@@ -68,7 +68,7 @@ def test_small_blob():
 
 def blob_tester(f):
   def wrapper():
-    db = karchive.Database(TEST_NAME, overwrite=True)
+    db = everdb.Database(TEST_NAME, overwrite=True)
     db.freelist = []
     blob = db.blob()
     r = blob.root
@@ -78,9 +78,9 @@ def blob_tester(f):
     data = f(blob)
 
     db.close()
-    db = karchive.Database(TEST_NAME)
+    db = everdb.Database(TEST_NAME)
     db.freelist = []
-    blob = karchive.Blob(db, r)
+    blob = everdb.Blob(db, r)
     assert len(blob) == len(data)
     assert blob.read() == data
     blob.close()

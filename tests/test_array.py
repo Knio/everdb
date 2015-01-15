@@ -2,12 +2,12 @@ import os
 
 import pytest
 
-import karchive
+import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_array():
-  db = karchive.Database(TEST_NAME, overwrite=True)
+  db = everdb.Database(TEST_NAME, overwrite=True)
   # db.freelist = []
   ar = db.array('I')
   r = ar.root
@@ -42,9 +42,9 @@ def test_array():
 
   #############
 
-  db = karchive.Database(TEST_NAME, readonly=True)
+  db = everdb.Database(TEST_NAME, readonly=True)
   # db.freelist = []
-  ar = karchive.Array(db, r, 'I', new=False)
+  ar = everdb.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
   for i in range(N):
@@ -56,9 +56,9 @@ def test_array():
 
   #############
 
-  db = karchive.Database(TEST_NAME)
+  db = everdb.Database(TEST_NAME)
   # db.freeelist = []
-  ar = karchive.Array(db, r, 'I', new=False)
+  ar = everdb.Array(db, r, 'I', new=False)
 
   assert len(ar) == N
   for i in range(N-1, -1, -1):
@@ -75,7 +75,7 @@ def test_array():
 
 
 def test_todo():
-  db = karchive.Database(TEST_NAME, overwrite=True)
+  db = everdb.Database(TEST_NAME, overwrite=True)
   # db.freelist = []
   ar = db.array('I')
   r = ar.root
