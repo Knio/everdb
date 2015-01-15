@@ -1,13 +1,13 @@
 everdb
-========
+======
 
-everdb is an embedded database system. It operates
+*everdb* is an embedded database system. It operates
 as a programming library with APIs to read, write, and access data structures contained in a single database file.
 
-[![Build Status](https://travis-ci.org/Knio/everdb.svg?branch=v3)](https://travis-ci.org/Knio/everdb)
-[![Coverage Status](https://img.shields.io/coveralls/Knio/everdb.svg)](https://coveralls.io/r/Knio/everdb?branch=v3)
+[![Build Status](https://travis-ci.org/Knio/everdb.svg)](https://travis-ci.org/Knio/everdb)
+[![Coverage Status](https://img.shields.io/coveralls/Knio/everdb.svg)](https://coveralls.io/r/Knio/everdb)
 
-Karchive is:
+*everdb* is:
 * Embedded (your application opens the databae file directly)
 * Single-user (only one process can open the file at a time)
 * ACID complient (supports transactions and guarantees data reliability)
@@ -15,7 +15,7 @@ Karchive is:
     large structures into memory, optimized for 4K RAM/disk sizes, etc)
 
 
-Karchive is NOT:
+*everdb* is not:
 * Client-server (you do not connect to a database server)
 * SQL (or NoSQL) (you operate on the database structures directly though a programming API, not by writing queries in SQL or JS)
 
@@ -36,7 +36,7 @@ TODO
 Datastructures
 ==============
 
-karachive supports three data structures: Blobs, Arrays, and Hashes.
+everdb supports three data structures: Blobs, Arrays, and Hashes.
 
 
 Blobs
