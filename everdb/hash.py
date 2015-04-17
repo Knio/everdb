@@ -1,5 +1,7 @@
-import msgpack
+import array
 from collections import defaultdict
+
+import msgpack
 
 from .blob import Blob
 from .blob import BLOCK_SIZE
@@ -150,9 +152,20 @@ class Hash(Bucket):
     bucket = blob.get_sub(s)
     return s, blob, bucket
 
+  def pack_value(self, val):
+    return 0, val
+
+  def unpack_value(self, val):
+    t, v = val
+    if t == 0:
+      return v
+    else:
+      raise Exception('could not unpack value from hash table: %r' % val)
+
   def get(self, key):
     s, blob, bucket = self.get_bucket(key)
-    return bucket[key]
+    val = bucket[key]
+    return self.unpack_value(val)
 
   def set(self, key, value):
     s, blob, bucket = self.get_bucket(key)
@@ -160,7 +173,7 @@ class Hash(Bucket):
       self.size += 1
       self.set_checksum()
 
-    bucket[key] = value
+    bucket[key] = self.pack_value(value)
     blob.set_sub(s, bucket)
     if blob.length >= 3072:
       self.grow()
@@ -176,7 +189,7 @@ class Hash(Bucket):
     self.set_checksum()
 
     # TODO shrink
-    return value
+    return self.unpack_value(value)
 
   def delete(self, key):
     self.pop(key)
@@ -189,16 +202,15 @@ class Hash(Bucket):
     return self.size
 
   def grow(self):
-    # import pdb
-    # pdb.set_trace()
-
     s = self.split
 
     if s == 0 and self.level == 0:
       bucket = super(Hash, self).items()
+      data = self.read()
       self.type = REGULAR_BLOB
-      # TODO zero data?
+      self.index[:] = array.array('I', [0] * len(self.index))
       self.allocate(2)
+      self.write(0, data)
       b0 = Bucket(self.host, self.get_host_index(s), True)
 
     else:

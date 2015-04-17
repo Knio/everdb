@@ -145,8 +145,25 @@ def test_regular_small(blob):
   return data[:4000]
 
 
+@blob_tester
+def test_resize(blob):
+  blob.resize(10000)
+  blob.allocate(1)
+  blob.allocate(512)
+  blob.allocate(513)
+  blob.allocate(512)
+  blob.allocate(0)
+  blob.resize(0)
+  return b''
+
+@blob_tester
+def test_data_copy(blob):
+  blob.resize(5)
+  blob.write(0, b'Hello')
+  blob.resize(10000)
+  return b'Hello' + (b'\0' * 9995)
+
 if __name__ == '__main__':
   import cgitb
   cgitb.enable(format='text')
-
-  test_small_to_regular()
+  test_data_copy()

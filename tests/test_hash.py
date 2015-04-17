@@ -12,6 +12,10 @@ def test_hash():
   hs = db.hash()
   r = hs.root
 
+
+  # import pdb
+  # pdb.set_trace()
+
   N = 2000
   for i in range(N):
     hs[i] = i

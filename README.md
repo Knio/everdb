@@ -23,11 +23,13 @@ as a programming library with APIs to read, write, and access data structures co
 TODO
 ====
 
+- [ ] Save format in Array header
 - [ ] Benchmarks for Blob, Array, Hash
 - [ ] Benchmark page comparing sqlite, bsd, etc
 - [ ] Caching to speed up benchmarks
 - [ ] Save format string in Array header
 - [ ] Store explicit db data structures in hash values (`h[x] = Blob()`)
+    - [ ] DB root hash to access structures
 - [ ] Store implicit large data in hash values (`h[x] = 'xxx'*(2**32)`)
 - [ ] File header with db state and version
 - [ ] Fixed-length struct array datatype

@@ -1,3 +1,4 @@
+import array
 import zlib
 
 from .blockdevice import BlockDeviceInterface
@@ -166,7 +167,7 @@ class Blob(BlockDeviceInterface):
       raise ValueError('not a regular blob, type=%r' % self.type)
 
     if i >= self.num_blocks:
-      raise IndexError('size: %d, i: %d' % (len(self), i))
+      raise IndexError('size: %d, i: %d' % (self.num_blocks, i))
 
     # one level pointer
     if i < ONE_LEVEL:
@@ -211,7 +212,6 @@ class Blob(BlockDeviceInterface):
       if self.index[i0] == 0:
         # allocate page table block
         b1 = self.host.allocate()
-        print('allocate page: %d' % b1)
         self.host[b1] = ZERO_BLOCK
         self.index[i0] = b1
 
@@ -323,7 +323,7 @@ class Blob(BlockDeviceInterface):
     data = None
     if self.type == SMALL_BLOB:
       data = self.read()
-      # TODO zero data?
+      self.index[:] = array.array('I', [0] * len(self.index))
       self.type = REGULAR_BLOB
       self.length = 0
 

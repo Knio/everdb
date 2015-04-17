@@ -29,7 +29,6 @@ class Database(FileBlockDevice):
     # may call allocate()
     self.freelist.append(block)
 
-
   # create new objects
   def blob(self):
     return Blob(self, self.allocate(), True)
@@ -39,5 +38,3 @@ class Database(FileBlockDevice):
 
   def hash(self):
     return Hash(self, self.allocate(), True)
-
-
