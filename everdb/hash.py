@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import msgpack
 
-from .blob import Blob
+from .blob import Blob, Field
 from .blob import BLOCK_SIZE
 from .blob import SMALL_BLOB, REGULAR_BLOB
 
@@ -101,7 +101,8 @@ class Bucket(Blob):
       n = self.num_blocks
       self.resize(o + d)
     self.write(o, data)
-    self.verify_checksum()
+    # TODO don't do this
+    self.sync_header(self.host[self.root])
 
   def items(self):
     b = {}
@@ -115,22 +116,16 @@ class Bucket(Blob):
 
 
 class Hash(Bucket):
-
-  HEADER = dict((k, i) for i, k in enumerate([
-    'size',
-    'split',
-    'level',
-    'length',
-    'num_blocks',
-    'type',
-    'checksum', # must be last
-  ]))
+  size  = Field('Q')
+  split = Field('I')
+  level = Field('B')
 
   def __init__(self, host, root, new):
     super(Hash, self).__init__(host, root, new)
 
   def init_root(self):
-    self.step = 0
+    self.size = 0
+    self.split = 0
     self.level = 0
     super(Hash, self).init_root()
 
@@ -171,7 +166,8 @@ class Hash(Bucket):
     s, blob, bucket = self.get_bucket(key)
     if key not in bucket:
       self.size += 1
-      self.set_checksum()
+      # TODO don't do this
+      self.sync_header(self.host[self.root])
 
     bucket[key] = self.pack_value(value)
     blob.set_sub(s, bucket)
@@ -250,4 +246,4 @@ class Hash(Bucket):
     else:
       self.split += 1
 
-    self.set_checksum()
+    self.sync_header(self.host[self.root])

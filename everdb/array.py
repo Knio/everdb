@@ -1,19 +1,18 @@
+'''
+Array of single primitive (struct) items
+'''
+
+# pylint: disable=W0311
+
 import struct
 
-from .blob import Blob
+from .blob import Blob, Field
 from .blob import SMALL_BLOB, REGULAR_BLOB
 from .blob import BLOCK, OFFSET
 from .blob import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
 
 class Array(Blob):
-
-  HEADER = dict((k, i) for i, k in enumerate([
-    'capacity',
-    'length',
-    'num_blocks',
-    'type',
-    'checksum', # must be last
-  ]))
+  capacity = Field('Q')
 
   def __init__(self, host, root, format, new):
     self.format = format
@@ -22,10 +21,9 @@ class Array(Blob):
     super(Array, self).__init__(host, root, new)
 
   def init_root(self):
-    super(Array, self).init_root()
-    MAX_SMALL = (BLOCK_SIZE - 4 * len(Array.HEADER)) // self.item_size
+    MAX_SMALL = (BLOCK_SIZE - self._header_size) // self.item_size
     self.capacity = MAX_SMALL
-    self.flush_root()
+    super(Array, self).init_root()
 
   def __len__(self):
     return self.length
@@ -106,7 +104,7 @@ class Array(Blob):
     # handles both grow and shrink operation
     length = capacity * self.item_size
 
-    MAX_SMALL = (BLOCK_SIZE - 4 * len(Array.HEADER))
+    MAX_SMALL = (BLOCK_SIZE - self._header_size)
     if length <= MAX_SMALL:
       if self.type == REGULAR_BLOB:
         # copy data to root in small block
