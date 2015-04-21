@@ -1,7 +1,10 @@
+# pylint: disable=W0311
+
 import array
 import zlib
 
 from .blockdevice import BlockDeviceInterface
+from .header import Header, Field
 
 BLOCK_BITS = (12) # 4096 bytes
 BLOCK_SIZE = (1 << BLOCK_BITS)
@@ -30,38 +33,28 @@ SMALL_BLOB = 1
 REGULAR_BLOB = 2
 
 
-class Blob(BlockDeviceInterface):
-  HEADER = dict((k, i) for i, k in enumerate([
-    'length',
-    'num_blocks',
-    'type',
-    'checksum', # must be last
-  ]))
+class Blob(BlockDeviceInterface, Header):
+  length      = Field('Q')
+  num_blocks  = Field('I')
+  type        = Field('B')
 
   def __init__(self, host, root, new=False):
     if host.block_size != BLOCK_SIZE: raise ValueError
     self.host = host
     self.root = root
-    self.header_size = len(self.HEADER)
 
     if new:
       self.init_root()
     else:
-      self.verify_checksum()
+      self.load_header(self.host[self.root])
 
   def __len__(self):
     return self.length
 
   @property
-  def header(self):
-    return self.host[self.root].cast('I')\
-      [INDEX_SIZE - self.header_size:INDEX_SIZE]\
-      .cast('B').cast('I') # TODO python22668 workaround
-
-  @property
   def index(self):
     return self.host[self.root].cast('I')\
-      [0:INDEX_SIZE - self.header_size]\
+      [0:INDEX_SIZE - self._header_size]\
       .cast('B').cast('I') # TODO python22668 workaround
 
   @property
@@ -73,35 +66,10 @@ class Blob(BlockDeviceInterface):
     self.resize(len(data))
     self.write(0, data)
 
-  def __getattr__(self, attr):
-    if attr not in self.HEADER:
-      raise AttributeError(attr)
-    i = self.HEADER[attr]
-    return self.header[i]
-
-  def __setattr__(self, attr, value):
-    if attr not in self.HEADER:
-      return object.__setattr__(self, attr, value)
-    i = self.HEADER[attr]
-    self.header[i] = value
-
-  def calc_checksum(self, s):
-    data = self.host[self.root][s]
-    return zlib.crc32(data)
-
-  def set_checksum(self):
-    self.checksum = self.calc_checksum(slice(0,-4))
-
-  def verify_checksum(self):
-    checksum = self.calc_checksum(s=slice(None))
-    if checksum != 558161692:
-      raise ValueError('checksum does not match: %d' % checksum)
-
   def flush_root(self):
-    self.set_checksum()
+    self.sync_header(self.host[self.root])
     # print('flush, checksum = %d' % self.checksum)
     self.host.flush(self.root)
-    self.verify_checksum() # TODO: remove later when stable
 
   def init_root(self):
     self.host[self.root] = ZERO_BLOCK
@@ -159,7 +127,8 @@ class Blob(BlockDeviceInterface):
       self.host[b][o:o+l] = data[i:i+l]
       i += l
     if self.type == SMALL_BLOB:
-      self.checksum = self.calc_checksum(slice(0,-4))
+      # TODO don't do this
+      self.sync_header(self.host[self.root])
 
   def get_host_index(self, i):
     # translate a local block pointer to a host block pointer
@@ -285,7 +254,7 @@ class Blob(BlockDeviceInterface):
     '''
     # requested size fits in a small block
     # handles both grow and shrink operation
-    MAX_SMALL = BLOCK_SIZE - (self.header_size * 4)
+    MAX_SMALL = BLOCK_SIZE - (self._header_size * 4)
     if length <= MAX_SMALL:
       if self.type == REGULAR_BLOB:
         # copy data to root in small block
@@ -341,4 +310,5 @@ class Blob(BlockDeviceInterface):
 
 
   def __repr__(self):
-    return '''<Blob(length=%d, num_blocks=%d, type=%d, checksum=%s)>''' % tuple(self.header)
+    return '''<Blob(root=%d, length=%d, num_blocks=%d, type=%d)>''' % \
+        (self.root, self.length, self.num_blocks, self.type)

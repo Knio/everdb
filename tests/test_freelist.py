@@ -39,18 +39,19 @@ def test_freelist():
     b = host.allocate()
     assert b == i
 
+  XX = 1016
   # fill small block of freelist
-  for i in range(3, 3 + 1018):
+  for i in range(3, 3 + XX):
     host.free(i)
     assert host.freelist[-1] == i
   assert host.freelist.type == 1
-  assert host.freelist.capacity == 1019
-  assert host.freelist.length == 1018
+  assert host.freelist.capacity == XX + 1
+  assert host.freelist.length == XX
   assert host.freelist.num_blocks == 0
 
   # causes freelist to become regular blob, allocating 3 + 1018
   # pdb.set_trace()
-  host.free(3 + 1018)
+  host.free(3 + XX)
   # freelist.append(1020)
   #   freelist.resize(1020 * 4)
   #     freelist.allocate(1)
@@ -64,17 +65,17 @@ def test_freelist():
   assert host.freelist.index[0] == 3075
   # print(tuple(host.freelist))
 
-  assert tuple(host.freelist) == tuple(range(3, 3 + 1018)) + (3 + 1018,)
+  assert tuple(host.freelist) == tuple(range(3, 3 + XX)) + (3 + XX,)
   assert host.freelist.num_blocks == 1
 
 
-  assert host.freelist.length == 1019
-  assert host.freelist[-1] == 1021
+  assert host.freelist.length == XX + 1
+  assert host.freelist[-1] == XX + 3
 
-  for i in range(3 + 1019, 3 + 1024 - 1):
+  for i in range(3 + XX, 3 + 1024 - 1):
     host.free(i)
     print(host.freelist[-1])
-    assert host.freelist.length == i - 3 + 1
+    assert host.freelist.length == i - 3 + 1 + 1
     assert host.freelist[-1] == i
 
   assert host.freelist.num_blocks == 1

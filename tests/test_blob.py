@@ -5,8 +5,19 @@ import random
 import pytest
 
 import everdb
+import everdb.blob
 
 TEST_NAME = 'test_archive.deleteme.dat'
+
+def test_blob():
+  assert everdb.blob.Blob._header == [
+    ('type', 'B'),
+    ('num_blocks', 'I'),
+    ('length', 'Q'),
+  ]
+  assert everdb.blob.Blob._header_fmt == '!BIQ'
+  assert everdb.blob.Blob._header_size == 17
+
 
 def test_small_blob():
   db = everdb.Database(TEST_NAME, overwrite=True)
