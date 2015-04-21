@@ -6,16 +6,18 @@ Array of single primitive (struct) items
 
 import struct
 
-from .blob import Blob, Field
-from .blob import SMALL_BLOB, REGULAR_BLOB
+from .page import Page, Field
+from .page import SMALL_PAGE, REGULAR_PAGE
 from .blob import BLOCK, OFFSET
-from .blob import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
+from .page import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
 
-class Array(Blob):
-  capacity = Field('Q')
+class Array(Page):
+  format    = Field('c')
+  length    = Field('Q')
+  capacity  = Field('Q')
 
   def __init__(self, host, root, format, new):
-    self.format = format
+    self.format = format.encode('ascii')
     self.item_size = struct.calcsize(format)
     self.items_per_block = BLOCK_SIZE // self.item_size
     super(Array, self).__init__(host, root, new)
@@ -23,6 +25,7 @@ class Array(Blob):
   def init_root(self):
     MAX_SMALL = (BLOCK_SIZE - self._header_size) // self.item_size
     self.capacity = MAX_SMALL
+    self.length = 0
     super(Array, self).init_root()
 
   def __len__(self):
@@ -41,13 +44,13 @@ class Array(Blob):
     j = i // self.items_per_block
     k = i  % self.items_per_block
 
-    if self.type == SMALL_BLOB:
+    if self.type == SMALL_PAGE:
       b = self.host[self.root]
     else:
       b = self.get_block(j)
 
     # TODO cache this
-    return b.cast(self.format)[k]
+    return b.cast(self.format.decode('ascii'))[k]
 
   def __setitem__(self, i, v):
     if isinstance(i, slice):
@@ -59,13 +62,13 @@ class Array(Blob):
     j = i // self.items_per_block
     k = i  % self.items_per_block
 
-    if self.type == SMALL_BLOB:
+    if self.type == SMALL_PAGE:
       b = self.host[self.root]
     else:
       b = self.get_block(j)
 
     # TODO cache this
-    b.cast(self.format)[k] = v
+    b.cast(self.format.decode('ascii'))[k] = v
 
   def getslice(self, i):
     raise NotImplementedError
@@ -106,7 +109,7 @@ class Array(Blob):
 
     MAX_SMALL = (BLOCK_SIZE - self._header_size)
     if length <= MAX_SMALL:
-      if self.type == REGULAR_BLOB:
+      if self.type == REGULAR_PAGE:
         # copy data to root in small block
         data = bytes(self.get_block(0)[0:length])
         # free data + page blocks,
@@ -120,7 +123,7 @@ class Array(Blob):
         self.host[self.root][s] = ZERO_BLOCK[s]
         # no zero fill when growing, since we assume the block was
         # zeroed either above or on blob creation
-      self.type = SMALL_BLOB
+      self.type = SMALL_PAGE
       self.capacity = capacity
       self.flush_root()
       return
@@ -143,9 +146,9 @@ class Array(Blob):
 
     data = None
     l = self.length
-    if self.type == SMALL_BLOB:
+    if self.type == SMALL_PAGE:
       data = bytes(self.host[self.root][0:self.length * self.item_size])
-      self.type = REGULAR_BLOB
+      self.type = REGULAR_PAGE
       self.length = 0
       self.capacity = 0
       # def _pop():

@@ -3,18 +3,17 @@ import os
 import pytest
 
 import everdb
-import everdb.hash
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_hash():
-  assert everdb.hash.Hash._header == [
+  assert everdb.Hash._header == [
     ('level', 'B'),
     ('split', 'I'),
     ('size', 'Q'),
+    ('length', 'Q'),
     ('type', 'B'),
     ('num_blocks', 'I'),
-    ('length', 'Q'),
   ]
 
   db = everdb.Database(TEST_NAME, overwrite=True)

@@ -5,22 +5,22 @@ import random
 import pytest
 
 import everdb
-import everdb.blob
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
 def test_blob():
-  assert everdb.blob.Blob._header == [
+  assert everdb.Blob._header == [
+    ('length', 'Q'),
     ('type', 'B'),
     ('num_blocks', 'I'),
-    ('length', 'Q'),
   ]
-  assert everdb.blob.Blob._header_fmt == '!BIQ'
-  assert everdb.blob.Blob._header_size == 17
+  assert everdb.Blob._header_fmt == '!QBI'
+  assert everdb.Blob._header_size == 17
 
 
 def test_small_blob():
   db = everdb.Database(TEST_NAME, overwrite=True)
+  db.freelist = []
   blob = db.blob()
 
   with pytest.raises(AttributeError):
@@ -58,6 +58,7 @@ def test_small_blob():
   #############
 
   db = everdb.Database(TEST_NAME)
+  db.freelist = []
   blob = everdb.Blob(db, r)
 
   assert len(blob) == 6
@@ -99,6 +100,18 @@ def blob_tester(f):
     os.remove(TEST_NAME)
   return wrapper
 
+@blob_tester
+def test_new(blob):
+  assert blob.length == 0
+  assert blob.type == 1
+  assert blob.num_blocks == 0
+  assert bytes(blob.root_block) == (b'\0' * (4096 - 8 - 1 - 4 - 4)) + \
+    b'\0\0\0\0\0\0\0\0' + \
+    b'\1' + \
+    b'\0\0\0\0' + \
+    b'\x39\x2D\x5B\x5D'
+
+  return b''
 
 @blob_tester
 def test_small_small(blob):
@@ -107,6 +120,7 @@ def test_small_small(blob):
   assert blob.read() == b'AAAAA'
 
   blob.resize(10)
+  assert blob.read() == b'AAAAA\0\0\0\0\0'
   blob.write(5, b'BBBBB')
   assert blob.read() == b'AAAAABBBBB'
 

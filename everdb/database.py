@@ -2,6 +2,7 @@ import os
 
 from .fileblockdevice   import FileBlockDevice
 
+from .page              import Page
 from .blob              import Blob
 from .array             import Array
 from .hash              import Hash
@@ -29,12 +30,16 @@ class Database(FileBlockDevice):
     # may call allocate()
     self.freelist.append(block)
 
+
   # create new objects
+  def page(self):
+    return Page(self, self.allocate(), new=True)
+
   def blob(self):
-    return Blob(self, self.allocate(), True)
+    return Blob(self, self.allocate(), new=True)
 
   def array(self, format):
-    return Array(self, self.allocate(), format, True)
+    return Array(self, self.allocate(), format, new=True)
 
   def hash(self):
-    return Hash(self, self.allocate(), True)
+    return Hash(self, self.allocate(), new=True)

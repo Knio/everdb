@@ -3,9 +3,10 @@ from collections import defaultdict
 
 import msgpack
 
-from .blob import Blob, Field
-from .blob import BLOCK_SIZE
-from .blob import SMALL_BLOB, REGULAR_BLOB
+from .page import Page, Field
+from .page import BLOCK_SIZE
+from .page import SMALL_PAGE, REGULAR_PAGE
+from .blob import Blob
 
 '''
 Linear hash table
@@ -203,7 +204,7 @@ class Hash(Bucket):
     if s == 0 and self.level == 0:
       bucket = super(Hash, self).items()
       data = self.read()
-      self.type = REGULAR_BLOB
+      self.type = REGULAR_PAGE
       self.index[:] = array.array('I', [0] * len(self.index))
       self.allocate(2)
       self.write(0, data)
