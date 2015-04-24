@@ -112,6 +112,12 @@ def test_resize():
     with pytest.raises(IndexError):
       j = ar[i]
 
+
+  ar.close()
+  db.close()
+  os.remove(TEST_NAME)
+
+
 def test_array():
   db = everdb.Database(TEST_NAME, overwrite=True)
   db.freelist = []
@@ -140,7 +146,6 @@ def test_array():
 
   ar.close()
   db.close()
-
   #############
 
   db = everdb.Database(TEST_NAME, readonly=True)

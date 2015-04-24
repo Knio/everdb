@@ -92,7 +92,11 @@ class Bucket(Blob):
     o, l = h[i << 1], h[(i << 1) + 1]
     if d <= l:
       h[(i << 1) + 1] = d
-      self.write(o, data)
+      if d == 0:
+        h[i << 1] = 0
+      else:
+        self.write(o, data)
+      self.sync_header(self.host[self.root])
       return
     # find and allocate new space for the sub bucket
     h[i << 1], h[(i << 1) + 1] = 0, 0
@@ -108,6 +112,14 @@ class Bucket(Blob):
     if o + d > self.length:
       n = self.num_blocks
       self.resize(o + d)
+
+    h = self.get_header()
+    # print(self.length)
+    # if o >= 4064:
+      # print(list(h))
+      # print(self.read(0, SUB_BUCKET << 1))
+    assert (h[i << 1], h[(i << 1) + 1]) == (o, len(data))
+
     self.write(o, data)
     # TODO don't do this
     self.sync_header(self.host[self.root])
@@ -147,7 +159,7 @@ class Hash(Bucket):
     s = b & SUB_BUCKET_MASK
     b >>= SUB_BUCKET_BITS
 
-    if self.num_blocks == 0:
+    if self.level == 0 and self.split == 0:
       blob = self
     else:
       blob = Bucket(self.host, self.get_host_index(b), False)
@@ -190,7 +202,7 @@ class Hash(Bucket):
     blob.set_sub(s, bucket)
 
     self.size -= 1
-    self.set_checksum()
+    self.flush_root()
 
     # TODO shrink
     return self.unpack_value(value)

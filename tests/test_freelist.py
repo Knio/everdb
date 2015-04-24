@@ -28,7 +28,7 @@ def test_freelist():
   assert len(host.freelist) == 0
   assert tuple(host.freelist) == ()
 
-  # allocate 3 pages worth
+  # allocate 3 pages worth (does not change the freelist)
   for i in range(3, 3 + 1024):
     b = host.allocate()
     assert b == i
@@ -39,7 +39,7 @@ def test_freelist():
     b = host.allocate()
     assert b == i
 
-  XX = 1016
+  XX = 1018
   # fill small block of freelist
   for i in range(3, 3 + XX):
     host.free(i)

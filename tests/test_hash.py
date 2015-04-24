@@ -30,11 +30,14 @@ def test_hash():
   N = 2000
   try:
     for i in range(P, P + N):
+      if i == 10000548:
+        debug_hash(hs)
       hs[i] = i
       assert hs[i] == i
       assert len(hs) == i - P + 1
 
   finally:
+    pass
     debug_hash(hs)
 
   hs.close()
@@ -90,7 +93,7 @@ def debug_bucket(b):
 def debug_hash(h):
   print(repr(h))
 
-  if h.num_blocks == 0:
+  if h.level == 0 and h.split == 0:
     debug_bucket(h)
   else:
     for i in range(h.num_blocks):

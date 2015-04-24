@@ -77,8 +77,14 @@ class Blob(Page):
     Resizes the blob to a given length, by truntating it or
     extending with zero bytes.
     '''
+    print('resize(%d)' % length)
     # requested size fits in a small block
     # handles both grow and shrink operation
+    if length < 0:
+      raise ValueError('length must not be negative (%d)' % length)
+    if length == self.length:
+      return
+
     MAX_SMALL = BLOCK_SIZE - self._header_size
     if length <= MAX_SMALL:
       s = slice(length, MAX_SMALL)
@@ -107,9 +113,10 @@ class Blob(Page):
     if cur_blocks == num_blocks:
       # don't need to allocate or free any blocks
       # zero fill any truncated space
-      b = self.get_block(BLOCK(length-1))
-      s = slice(OFFSET(length), BLOCK_SIZE)
-      b[s] = ZERO_BLOCK[s]
+      if length < self.length:
+        b = self.get_block(BLOCK(length - 1))
+        s = slice(OFFSET(length), OFFSET(self.length - 1) + 1)
+        b[s] = ZERO_BLOCK[s]
       self.length = length
       self.flush_root()
       return

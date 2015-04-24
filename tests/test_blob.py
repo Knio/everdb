@@ -188,6 +188,26 @@ def test_data_copy(blob):
   blob.resize(10000)
   return b'Hello' + (b'\0' * 9995)
 
+
+@blob_tester
+def test_resize(blob):
+  blob.resize(5)
+  blob.write(0, b'Hello')
+  # force it a 1 block
+  blob.resize(4096 - blob._header_size + 1)
+  assert blob.num_blocks == 1
+  # test truncation
+  blob.resize(4096)
+  blob.write(5, b'\1' * 4091)
+  assert blob.num_blocks == 1
+  assert blob.read(0, 5) == b'Hello'
+
+  # test truncation
+  blob.resize(4095)
+  assert bytes(blob.host[blob.get_host_index(0)][4090:4096]) == b'\1\1\1\1\1\0'
+
+  return b'Hello' + (b'\1' * 4090)
+
 if __name__ == '__main__':
   import cgitb
   cgitb.enable(format='text')
