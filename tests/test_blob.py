@@ -8,8 +8,19 @@ import everdb
 
 TEST_NAME = 'test_archive.deleteme.dat'
 
+def test_blob():
+  assert everdb.Blob._header == [
+    ('length', 'Q'),
+    ('type', 'B'),
+    ('num_blocks', 'I'),
+  ]
+  assert everdb.Blob._header_fmt == '!QBI'
+  assert everdb.Blob._header_size == 17
+
+
 def test_small_blob():
   db = everdb.Database(TEST_NAME, overwrite=True)
+  db.freelist = []
   blob = db.blob()
 
   with pytest.raises(AttributeError):
@@ -47,6 +58,7 @@ def test_small_blob():
   #############
 
   db = everdb.Database(TEST_NAME)
+  db.freelist = []
   blob = everdb.Blob(db, r)
 
   assert len(blob) == 6
@@ -88,6 +100,18 @@ def blob_tester(f):
     os.remove(TEST_NAME)
   return wrapper
 
+@blob_tester
+def test_new(blob):
+  assert blob.length == 0
+  assert blob.type == 1
+  assert blob.num_blocks == 0
+  assert bytes(blob.root_block) == (b'\0' * (4096 - 8 - 1 - 4 - 4)) + \
+    b'\0\0\0\0\0\0\0\0' + \
+    b'\1' + \
+    b'\0\0\0\0' + \
+    b'\x39\x2D\x5B\x5D'
+
+  return b''
 
 @blob_tester
 def test_small_small(blob):
@@ -96,6 +120,7 @@ def test_small_small(blob):
   assert blob.read() == b'AAAAA'
 
   blob.resize(10)
+  assert blob.read() == b'AAAAA\0\0\0\0\0'
   blob.write(5, b'BBBBB')
   assert blob.read() == b'AAAAABBBBB'
 
@@ -162,6 +187,26 @@ def test_data_copy(blob):
   blob.write(0, b'Hello')
   blob.resize(10000)
   return b'Hello' + (b'\0' * 9995)
+
+
+@blob_tester
+def test_resize(blob):
+  blob.resize(5)
+  blob.write(0, b'Hello')
+  # force it a 1 block
+  blob.resize(4096 - blob._header_size + 1)
+  assert blob.num_blocks == 1
+  # test truncation
+  blob.resize(4096)
+  blob.write(5, b'\1' * 4091)
+  assert blob.num_blocks == 1
+  assert blob.read(0, 5) == b'Hello'
+
+  # test truncation
+  blob.resize(4095)
+  assert bytes(blob.host[blob.get_host_index(0)][4090:4096]) == b'\1\1\1\1\1\0'
+
+  return b'Hello' + (b'\1' * 4090)
 
 if __name__ == '__main__':
   import cgitb

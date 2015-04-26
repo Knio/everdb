@@ -3,9 +3,10 @@ from collections import defaultdict
 
 import msgpack
 
+from .page import Page, Field
+from .page import BLOCK_SIZE, ZERO_BLOCK
+from .page import SMALL_PAGE, REGULAR_PAGE
 from .blob import Blob
-from .blob import BLOCK_SIZE
-from .blob import SMALL_BLOB, REGULAR_BLOB
 
 '''
 Linear hash table
@@ -56,11 +57,14 @@ def next_power_of_2(x):
   x |= x >> 16
   return x + 1
 
+
 class Bucket(Blob):
+
   def init_root(self):
     super(Bucket, self).init_root()
     self.resize(SUB_BUCKET << 2)
     self.get_header()[:] == [0] * SUB_BUCKET
+    self.flush_root()
 
   def get_header(self):
     if self.num_blocks == 0:
@@ -78,13 +82,21 @@ class Bucket(Blob):
     return msgpack.loads(self.read(o, l))
 
   def set_sub(self, i, bucket):
-    data = msgpack.dumps(bucket)
-    d = len(data)
+    if not bucket:
+      data = b''
+      d = 0
+    else:
+      data = msgpack.dumps(bucket)
+      d = len(data)
     h = self.get_header()
     o, l = h[i << 1], h[(i << 1) + 1]
     if d <= l:
-      h[(i << 1) + 1] = len(data)
-      self.write(o, data)
+      h[(i << 1) + 1] = d
+      if d == 0:
+        h[i << 1] = 0
+      else:
+        self.write(o, data)
+      self.sync_header(self.host[self.root])
       return
     # find and allocate new space for the sub bucket
     h[i << 1], h[(i << 1) + 1] = 0, 0
@@ -100,37 +112,40 @@ class Bucket(Blob):
     if o + d > self.length:
       n = self.num_blocks
       self.resize(o + d)
+
+    h = self.get_header()
+    # print(self.length)
+    # if o >= 4064:
+      # print(list(h))
+      # print(self.read(0, SUB_BUCKET << 1))
+    assert (h[i << 1], h[(i << 1) + 1]) == (o, len(data))
+
     self.write(o, data)
-    self.verify_checksum()
+    # TODO don't do this
+    self.sync_header(self.host[self.root])
 
   def items(self):
     b = {}
     h = self.get_header()
     for i in range(0, SUB_BUCKET << 1, 2):
       o, l = h[i], h[i + 1]
-      if l == 0: continue
+      if not l: continue
       b.update(msgpack.loads(self.read(o, l)))
     return b
 
 
 
 class Hash(Bucket):
-
-  HEADER = dict((k, i) for i, k in enumerate([
-    'size',
-    'split',
-    'level',
-    'length',
-    'num_blocks',
-    'type',
-    'checksum', # must be last
-  ]))
+  size  = Field('Q')
+  split = Field('I')
+  level = Field('B')
 
   def __init__(self, host, root, new):
     super(Hash, self).__init__(host, root, new)
 
   def init_root(self):
-    self.step = 0
+    self.size = 0
+    self.split = 0
     self.level = 0
     super(Hash, self).init_root()
 
@@ -144,7 +159,7 @@ class Hash(Bucket):
     s = b & SUB_BUCKET_MASK
     b >>= SUB_BUCKET_BITS
 
-    if self.num_blocks == 0:
+    if self.level == 0 and self.split == 0:
       blob = self
     else:
       blob = Bucket(self.host, self.get_host_index(b), False)
@@ -171,7 +186,8 @@ class Hash(Bucket):
     s, blob, bucket = self.get_bucket(key)
     if key not in bucket:
       self.size += 1
-      self.set_checksum()
+      # TODO don't do this
+      self.sync_header(self.host[self.root])
 
     bucket[key] = self.pack_value(value)
     blob.set_sub(s, bucket)
@@ -186,7 +202,7 @@ class Hash(Bucket):
     blob.set_sub(s, bucket)
 
     self.size -= 1
-    self.set_checksum()
+    self.flush_root()
 
     # TODO shrink
     return self.unpack_value(value)
@@ -198,6 +214,10 @@ class Hash(Bucket):
   __setitem__ = set
   __delitem__ = delete
 
+  def __contains__(self, key):
+    s, blob, bucket = self.get_bucket(key)
+    return key in bucket
+
   def __len__(self):
     return self.size
 
@@ -206,19 +226,24 @@ class Hash(Bucket):
 
     if s == 0 and self.level == 0:
       bucket = super(Hash, self).items()
-      data = self.read()
-      self.type = REGULAR_BLOB
-      self.index[:] = array.array('I', [0] * len(self.index))
+      sl = slice(0, BLOCK_SIZE - self._header_size)
+      self.host[self.root][sl] = ZERO_BLOCK[sl]
+      self.type = REGULAR_PAGE
       self.allocate(2)
-      self.write(0, data)
       b0 = Bucket(self.host, self.get_host_index(s), True)
 
     else:
       self.allocate(self.num_blocks + 1)
       b0 = Bucket(self.host, self.get_host_index(s), False)
       bucket = b0.items()
+      if b0.type == REGULAR_PAGE:
+        b0.allocate(0)
+      b0.init_root()
 
-    b1 = Bucket(self.host, self.get_host_index(s + (1 << self.level)), True)
+    s0 = s
+    s1 = s + (1 << self.level)
+
+    b1 = Bucket(self.host, self.get_host_index(s1), True)
 
     # rehash bucket into b0 and b1
     bucket0 = defaultdict(dict)
@@ -230,18 +255,22 @@ class Hash(Bucket):
       u = b & SUB_BUCKET_MASK
       b >>= SUB_BUCKET_BITS
 
-      if b == s:
+      if b == s0:
         bucket0[u][k] = v
-      elif b == (s + (1 << self.level)):
+      elif b == s1:
         bucket1[u][k] = v
       else:
         assert False, b
 
-    for sub, bucket in bucket0.items():
-      b0.set_sub(sub, bucket)
+    for sub, d in bucket0.items():
+      b0.set_sub(sub, d)
 
-    for sub, bucket in bucket1.items():
-      b1.set_sub(sub, bucket)
+    for sub, d in bucket1.items():
+      b1.set_sub(sub, d)
+
+    print('split into %d and %d' % (s0, s1))
+    print('  %r' % bucket0)
+    print('  %r' % bucket1)
 
     if s + 1 == (1 << self.level):
       self.level += 1
@@ -250,4 +279,8 @@ class Hash(Bucket):
     else:
       self.split += 1
 
-    self.set_checksum()
+    self.sync_header(self.host[self.root])
+
+    for k, v in bucket.items():
+      assert [0, self[k]] == v
+
