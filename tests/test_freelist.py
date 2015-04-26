@@ -62,20 +62,20 @@ def test_freelist():
   #             does not call free
   #
   assert host.freelist.type == 2
-  assert host.freelist.index[0] == 3075
+  assert host.freelist.capacity == 1024
+  assert host.freelist.index[0] == XX + 3
   # print(tuple(host.freelist))
 
-  assert tuple(host.freelist) == tuple(range(3, 3 + XX)) + (3 + XX,)
+  assert tuple(host.freelist) == tuple(range(3, 3 + XX))
   assert host.freelist.num_blocks == 1
 
 
-  assert host.freelist.length == XX + 1
-  assert host.freelist[-1] == XX + 3
+  assert host.freelist.length == XX
+  assert host.freelist[-1] == XX + 3 - 1
 
   for i in range(3 + XX, 3 + 1024 - 1):
     host.free(i)
-    print(host.freelist[-1])
-    assert host.freelist.length == i - 3 + 1 + 1
+    assert host.freelist.length == i - 3 + 1
     assert host.freelist[-1] == i
 
   assert host.freelist.num_blocks == 1
@@ -88,28 +88,39 @@ def test_freelist():
   host.free(3 + 1024 - 1)
 
   assert host.freelist.num_blocks == 2
-  assert host.freelist.capacity == 1025
+  assert host.freelist.capacity == 2048
   assert host.freelist.index[1] == 3 + 1024 - 1
   assert host.freelist.length == 1023
   assert host.freelist[-1] == 1023 + 3 - 1
 
 
   assert host.allocate() == 1023 + 3 - 1
-  assert host.freelist.num_blocks == 2
-  assert host.freelist.capacity == 1025
-  assert host.freelist.length == 1022
-  assert host.freelist[-1] == 1022 + 3 - 1
+  assert host.freelist.num_blocks == 1
+  assert host.freelist.capacity == 1024
+  assert host.freelist.length == 1023
+  assert host.freelist[-1] == 1024 + 3 - 1
 
   # causes freelist to shrink
-  assert host.allocate() == 1022 + 3 - 1
+  assert host.allocate() == 1024 + 3 - 1
   # calls free(3 + 1024 + 1)
   assert host.freelist.num_blocks == 1
   assert host.freelist.capacity == 1024
   assert host.freelist.length == 1022
-  assert host.freelist[-1] == 1024 + 3 - 1
+  assert host.freelist[-1] == 1022 + 3 - 1
 
+  assert host.allocate() == 1022 + 3 - 1
+  assert host.freelist.type == 2
+  assert host.allocate() == 1021 + 3 - 1
+  assert host.freelist.type == 2
+  assert host.allocate() == 1020 + 3 - 1
+  assert host.freelist.type == 2
+  assert host.allocate() == 1019 + 3 - 1
+  assert host.freelist.type == 2
 
-
+  # causes shrink to small
+  assert host.allocate() == 1018 + 3 - 1
+  assert host.freelist.type == 1
+  assert host.freelist.capacity == 1019
 
   host.close()
   os.remove(TEST_NAME)

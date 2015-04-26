@@ -117,13 +117,15 @@ class Page(BlockDeviceInterface, Header):
   def make_regular(self):
     if self.type == REGULAR_PAGE: return
     print('make_regular')
-    data = bytes(self.host[self.root][0:-self._header_size])
+    b = self.host.allocate()
+    hs = self._header_size
+    self.host[b][0:-hs] = self.host[self.root][0:-hs]
+    self.host[b][-hs:] = ZERO_BLOCK[-hs:]
     self.host[self.root] = ZERO_BLOCK
+    self.index[0] = b
     self.type = REGULAR_PAGE
-    self.allocate(1)
-    b = self.get_host_index(0)
-    self.get_block(0)[0:-self._header_size] = data
-    self.flush(0)
+    self.num_blocks = 1
+    self.flush_root()
 
   def get_block(self, i):
     return self.host.get_block(self.get_host_index(i))
