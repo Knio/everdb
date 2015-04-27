@@ -16,8 +16,10 @@ class Array(Page):
 
   def __init__(self, host, root, format, new):
     self.format = format.encode('ascii')
+    self.format_ascii = format
     self.item_size = struct.calcsize(format)
     self.items_per_block = BLOCK_SIZE // self.item_size
+    self.last_block = None
     super(Array, self).__init__(host, root, new)
 
   def init_root(self):
@@ -52,9 +54,11 @@ class Array(Page):
       b = self.host[self.root]
     else:
       b = self.get_block(j)
+      if j == self.num_blocks:
+        self.last_block = b.cast(self.format_ascii)
 
     # TODO SLOW cache this
-    return b.cast(self.format.decode('ascii'))[k]
+    return b.cast(self.format_ascii)[k]
 
   def __setitem__(self, i, v):
     if isinstance(i, slice):
@@ -72,7 +76,7 @@ class Array(Page):
       b = self.get_block(j)
 
     # TODO SLOW cache this
-    b.cast(self.format.decode('ascii'))[k] = v
+    b.cast(self.format_ascii)[k] = v
 
   def getslice(self, i):
     raise NotImplementedError
@@ -85,11 +89,12 @@ class Array(Page):
 
   def append(self, v):
     l = self.length
-    assert self.capacity >= l + 1
+    c = self.capacity
+    assert c >= l + 1
     self.length += 1
     self[l] = v
     # ensure 1 extra slot
-    if self.capacity < l + 2:
+    if c < l + 2:
       if self.num_blocks == 0:
         self.make_regular()
       else:

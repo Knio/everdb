@@ -116,7 +116,6 @@ class Page(BlockDeviceInterface, Header):
 
   def make_regular(self):
     if self.type == REGULAR_PAGE: return
-    print('make_regular')
     b = self.host.allocate()
     hs = self._header_size
     self.host[b][0:-hs] = self.host[self.root][0:-hs]
