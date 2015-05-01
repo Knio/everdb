@@ -64,7 +64,7 @@ class Bucket(Blob):
     super(Bucket, self).init_root()
     self.resize(SUB_BUCKET << 2)
     self.get_header()[:] == [0] * SUB_BUCKET
-    self.flush_root()
+    self.sync_header()
 
   def get_header(self):
     if self.num_blocks == 0:
@@ -96,7 +96,7 @@ class Bucket(Blob):
         h[i << 1] = 0
       else:
         self.write(o, data)
-      self.sync_header(self.host[self.root])
+      self.sync_header()
       return
     # find and allocate new space for the sub bucket
     h[i << 1], h[(i << 1) + 1] = 0, 0
@@ -122,7 +122,7 @@ class Bucket(Blob):
 
     self.write(o, data)
     # TODO don't do this
-    self.sync_header(self.host[self.root])
+    self.sync_header()
 
   def items(self):
     b = {}
@@ -187,7 +187,7 @@ class Hash(Bucket):
     if key not in bucket:
       self.size += 1
       # TODO don't do this
-      self.sync_header(self.host[self.root])
+      self.sync_header()
 
     bucket[key] = self.pack_value(value)
     blob.set_sub(s, bucket)
@@ -202,7 +202,7 @@ class Hash(Bucket):
     blob.set_sub(s, bucket)
 
     self.size -= 1
-    self.flush_root()
+    self.sync_header()
 
     # TODO shrink
     return self.unpack_value(value)
@@ -279,7 +279,7 @@ class Hash(Bucket):
     else:
       self.split += 1
 
-    self.sync_header(self.host[self.root])
+    self.sync_header()
 
     for k, v in bucket.items():
       assert [0, self[k]] == v

@@ -187,7 +187,7 @@ class Array(Page):
       # no zero fill when growing, since we assume the block was
       # zeroed either above or on blob creation
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
     # requested size requires a regular blob
@@ -204,7 +204,7 @@ class Array(Page):
         s = slice(length % self.items_per_block, BLOCK_SIZE)
         b[s] = ZERO_BLOCK[s]
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
     self.last_block = None
@@ -216,7 +216,7 @@ class Array(Page):
     self.allocate(num_blocks)
 
     self.length = length
-    self.flush_root()
+    self.sync_header()
 
   def __repr__(self):
     return '''<Array(root=%d, type=%d, format=%s, num_blocks=%d, length=%d)>''' % \

@@ -58,29 +58,30 @@ class Page(BlockDeviceInterface, Header):
   def index(self):
     return self.host[self.root][0:-self._header_size & ~4 + 1].cast('I')
 
-  def flush_root(self):
-    self.sync_header(self.root_block)
-    # print('flush, checksum = %d' % self.checksum)
+  def sync_header(self):
+    Header.sync_header(self, self.host[self.root])
+
+  def flush_header(self):
+    self.sync_header()
     self.host.flush(self.root)
 
   def init_root(self):
     self.host[self.root] = ZERO_BLOCK  # do we need to do this?
     self.num_blocks = 0
     self.type = SMALL_PAGE
-    self.flush_root()
+    self.sync_header()
 
   def flush(self, b=-1):
     if b == -1:
       # TODO keep track of just these blocks
-      self.flush_root()
+      self.sync_header()
       self.host.flush()
     else:
       self.host.flush(self.get_host_index(b))
 
   def close(self):
     if not self.host.readonly:
-      self.flush()
-      self.flush_root()
+      self.flush_header()
 
   def get_host_index(self, i):
     # translate a local block pointer to a host block pointer
@@ -112,7 +113,7 @@ class Page(BlockDeviceInterface, Header):
     self.allocate(0)
     self.type = SMALL_PAGE
     self.host[self.root][0:-self._header_size] = data
-    self.flush_root()
+    self.sync_header()
 
   def make_regular(self):
     if self.type == REGULAR_PAGE: return
@@ -124,7 +125,7 @@ class Page(BlockDeviceInterface, Header):
     self.index[0] = b
     self.type = REGULAR_PAGE
     self.num_blocks = 1
-    self.flush_root()
+    self.sync_header()
 
   def get_block(self, i):
     return self.host.get_block(self.get_host_index(i))
@@ -227,9 +228,9 @@ class Page(BlockDeviceInterface, Header):
       self.num_blocks = cur_blocks
 
     # cleanup
-    for b in dirty:
-      self.host.flush(b)
-    self.flush_root()
+    # for b in dirty:
+    #   self.host.flush(b)
+    self.sync_header()
 
   def __repr__(self):
     return '''<Page(root=%d, type=%d, num_blocks=%d)>''' % \
