@@ -10,6 +10,8 @@ from .hash              import Hash
 class Database(FileBlockDevice):
   def __init__(self, *args, **kwargs):
     super(Database, self).__init__(*args, **kwargs)
+    self._cache = []
+
     if self.is_new:
       # allocate root for freelist
       self.freelist = []
@@ -22,6 +24,7 @@ class Database(FileBlockDevice):
       block = self.freelist.pop()
     else:
       block = len(self)
+      self._cache[:] = []
       self.resize(block + 1)
 
     return block
@@ -30,6 +33,12 @@ class Database(FileBlockDevice):
     # may call allocate()
     self.freelist.append(block)
 
+  def close(self):
+    self._cache[:] = []
+    super(Database, self).close()
+
+  def cache(self, obj):
+    self._cache.append(obj)
 
   # create new objects
   def page(self):

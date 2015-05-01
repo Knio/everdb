@@ -5,6 +5,7 @@ Array of single primitive (struct) items
 # pylint: disable=W0311
 
 import struct
+import weakref
 
 from .page import Page, Field
 from .page import SMALL_PAGE, REGULAR_PAGE
@@ -54,8 +55,6 @@ class Array(Page):
       b = self.host[self.root]
     else:
       b = self.get_block(j)
-      if j == self.num_blocks:
-        self.last_block = b.cast(self.format_ascii)
 
     # TODO SLOW cache this
     return b.cast(self.format_ascii)[k]
@@ -74,6 +73,10 @@ class Array(Page):
       b = self.host[self.root]
     else:
       b = self.get_block(j)
+      if j == self.num_blocks - 1:
+        c = b.cast(self.format_ascii)
+        self.last_block = weakref.ref(c)
+        self.host.cache(c)
 
     # TODO SLOW cache this
     b.cast(self.format_ascii)[k] = v
@@ -89,32 +92,73 @@ class Array(Page):
 
   def append(self, v):
     l = self.length
-    c = self.capacity
-    assert c >= l + 1
+    n = self.num_blocks
+
+    if n == 0:
+      j = -1
+      k = l
+
+    else:
+      p = self.items_per_block
+      j = l // p
+      k = l  % p
+
     self.length += 1
-    self[l] = v
+
+    # TODO fix allocation if user manually filled a block to capacity
+    assert j < n
+
+    try:
+      self.last_block()[k] = v
+    except:
+      self[l] = v
+
     # ensure 1 extra slot
-    if c < l + 2:
-      if self.num_blocks == 0:
+    if n == 0:
+      c = (BLOCK_SIZE - self._header_size) // self.item_size
+      if l > c - 2:
+        self.last_block = None
         self.make_regular()
-      else:
-        self.allocate(self.num_blocks + 1)
+
+    elif k > p - 2:
+      self.last_block = None
+      self.allocate(n + 1)
 
   def pop(self):
-    if not self.length:
-      raise IndexError
-    l = self.length
-    j = l - 1
-    x = self[j]
-    self[j] = 0
-    self.length = j
+    l = self.length - 1
+    n = self.num_blocks
 
-    if self.num_blocks == 1:
-      if (BLOCK_SIZE - self._header_size) // self.item_size > l:
+    if l == -1:
+      raise IndexError
+
+    if n == 0:
+      j = -1
+      k = l
+
+    else:
+      p = self.items_per_block
+      j = l // p
+      k = l  % p
+
+    try:
+      # raise
+      # b = self.last_block()
+      x = b[k]
+      b[k] = 0
+    except:
+      x = self[l]
+      self[l] = 0
+
+    self.length = l
+
+    if n == 1:
+      if (BLOCK_SIZE - self._header_size) // self.item_size > l + 1:
+        self.last_block = None
         self.make_small()
 
-    elif self.num_blocks > 1:
-      if (self.num_blocks - 1) * self.items_per_block > l:
+    elif n > 1:
+      if (n - 1) * p > l + 1:
+        self.last_block = None
         self.allocate(self.num_blocks - 1)
 
     return x
@@ -132,6 +176,7 @@ class Array(Page):
         # copy data to root in small block
         data = bytes(self.get_block(0)[0:length])
         # free data + page blocks,
+        self.last_block = None
         self.allocate(0)
         self.host[self.root][0:length] = data
         self.type = SMALL_PAGE
@@ -162,6 +207,7 @@ class Array(Page):
       self.flush_root()
       return
 
+    self.last_block = None
     if self.type == SMALL_PAGE:
       self.make_regular()
 
