@@ -77,7 +77,6 @@ class Blob(Page):
     Resizes the blob to a given length, by truntating it or
     extending with zero bytes.
     '''
-    print('resize(%d)' % length)
     # requested size fits in a small block
     # handles both grow and shrink operation
     if length < 0:

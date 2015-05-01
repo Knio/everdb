@@ -268,9 +268,9 @@ class Hash(Bucket):
     for sub, d in bucket1.items():
       b1.set_sub(sub, d)
 
-    print('split into %d and %d' % (s0, s1))
-    print('  %r' % bucket0)
-    print('  %r' % bucket1)
+    # print('split into %d and %d' % (s0, s1))
+    # print('  %r' % bucket0)
+    # print('  %r' % bucket1)
 
     if s + 1 == (1 << self.level):
       self.level += 1
