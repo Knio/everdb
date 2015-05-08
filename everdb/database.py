@@ -22,6 +22,7 @@ class Database(FileBlockDevice):
     if self.freelist:
       # may call free()
       block = self.freelist.pop()
+      assert block != 0, self.freelist
     else:
       block = len(self)
       self._cache[:] = []
@@ -31,6 +32,7 @@ class Database(FileBlockDevice):
 
   def free(self, block):
     # may call allocate()
+    assert block != 0
     self.freelist.append(block)
 
   def close(self):

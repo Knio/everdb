@@ -34,7 +34,7 @@ class Benchmark(object):
     return duration
 
   def bench(self):
-    T = 0.25
+    T = 0.40
     n = 1000
     d = 0
     while 1:
@@ -43,7 +43,7 @@ class Benchmark(object):
       if d > T: break
       n = int(1.5 * T * n / (d + 0.0005))
 
-    print('%-20s%6d ops/ms' % (
+    print('    %-10s%6d ops/ms' % (
         type(self).__name__.split('Benchmark')[1],
         float(n)/d/1000
     ))
@@ -179,13 +179,13 @@ class ArrayIterateBenchmarkSqlite(Benchmark):
     self.c.execute('''create table ar (i integer, v integer)''')
     self.c.execute('''create index i_ar on ar (i)''')
     for i in range(n):
-      c.execute('insert into ar values (?,?)', (i,i))
+      c.execute('insert into ar values (?, ?)', (i,i))
     self.db.commit()
 
   def run(self, n):
     c = self.c
     for i in range(n):
-      c.execute('select v from ar where i=?', (i,))
+      c.execute('select v from ar where i = ?', (i,))
       x = c.fetchone()[0]
 
   def teardown(self):
@@ -226,6 +226,8 @@ class ArrayPopBenchmarkSqlite(Benchmark):
   def run(self, n):
     c = self.c
     for i in range(n):
+      c.execute('select v from ar where i = ?', (i,))
+      x = c.fetchone()[0]
       c.execute('delete from ar where i = ?', (i,))
     self.db.commit()
 
@@ -276,6 +278,7 @@ class HashInsertBenchmarkDict(Benchmark):
 
   def teardown(self):
     self.hs.clear()
+
 
 
 

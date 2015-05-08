@@ -20,7 +20,7 @@ class Array(Page):
     self.format_ascii = format
     self.item_size = struct.calcsize(format)
     self.items_per_block = BLOCK_SIZE // self.item_size
-    self.last_block = None
+    self.block_cache = weakref.WeakValueDictionary()
     super(Array, self).__init__(host, root, new)
 
   def init_root(self):
@@ -38,48 +38,62 @@ class Array(Page):
   def __len__(self):
     return self.length
 
+  def get_array_block(self, j):
+    try:
+      return self.block_cache[j]
+    except KeyError:
+      if j == -1:
+        b = self.host[self.root]
+      else:
+        b = self.get_block(j)
+      b = b.cast(self.format_ascii)
+      self.block_cache[j] = b
+      self.host.cache(b)
+      return b
+
   def __getitem__(self, i):
     if isinstance(i, slice):
       return self.getslice(i)
 
     if i < 0:
       i = self.length + i
+
     if not (0 <= i < self.length):
       raise IndexError('index out of range: %d (length: %d)'
         % (i, self.length))
 
-    j = i // self.items_per_block
-    k = i  % self.items_per_block
-
     if self.type == SMALL_PAGE:
-      b = self.host[self.root]
-    else:
-      b = self.get_block(j)
+      j = -1
+      k = i
 
-    # TODO SLOW cache this
-    return b.cast(self.format_ascii)[k]
+    else:
+      j = i // self.items_per_block
+      k = i  % self.items_per_block
+
+    b = self.get_array_block(j)
+    return b[k]
 
   def __setitem__(self, i, v):
     if isinstance(i, slice):
       return self.setslice(i, v)
 
+    if i < 0:
+      i = self.length + i
+
     if not (0 <= i < self.length):
       raise IndexError()
 
-    j = i // self.items_per_block
-    k = i  % self.items_per_block
-
     if self.type == SMALL_PAGE:
-      b = self.host[self.root]
-    else:
-      b = self.get_block(j)
-      if j == self.num_blocks - 1:
-        c = b.cast(self.format_ascii)
-        self.last_block = weakref.ref(c)
-        self.host.cache(c)
+      j = -1
+      k = i
 
-    # TODO SLOW cache this
-    b.cast(self.format_ascii)[k] = v
+    else:
+      j = i // self.items_per_block
+      k = i  % self.items_per_block
+
+    b = self.get_array_block(j)
+    b[k] = v
+    return v
 
   def getslice(self, i):
     raise NotImplementedError
@@ -95,6 +109,7 @@ class Array(Page):
     n = self.num_blocks
 
     if n == 0:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
       j = -1
       k = l
 
@@ -109,20 +124,19 @@ class Array(Page):
     assert j < n
 
     try:
-      self.last_block()[k] = v
-    except:
-      self[l] = v
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+    b[k] = v
+    del b
 
-    # ensure 1 extra slot
-    if n == 0:
-      c = (BLOCK_SIZE - self._header_size) // self.item_size
-      if l > c - 2:
-        self.last_block = None
+    # an allocate here may cause a pop(),
+    # and that pop must not cause free.
+    if k + 1 >= p:
+      if n == 0:
         self.make_regular()
-
-    elif k > p - 2:
-      self.last_block = None
-      self.allocate(n + 1)
+      elif j + 1 == n:
+        self.allocate(n + 1)
 
   def pop(self):
     l = self.length - 1
@@ -132,7 +146,13 @@ class Array(Page):
       raise IndexError
 
     if n == 0:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
       j = -1
+      k = l
+
+    elif n == 1:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
+      j = 0
       k = l
 
     else:
@@ -141,25 +161,21 @@ class Array(Page):
       k = l  % p
 
     try:
-      # raise
-      # b = self.last_block()
-      x = b[k]
-      b[k] = 0
-    except:
-      x = self[l]
-      self[l] = 0
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
+    x = b[k]
+    b[k] = 0
+    del b
 
     self.length = l
 
-    if n == 1:
-      if (BLOCK_SIZE - self._header_size) // self.item_size > l + 1:
-        self.last_block = None
+    if k < p - 1:
+      if n == 1:
         self.make_small()
-
-    elif n > 1:
-      if (n - 1) * p > l + 1:
-        self.last_block = None
-        self.allocate(self.num_blocks - 1)
+      elif j + 2 == n:
+        self.allocate(n - 1)
 
     return x
 
@@ -219,5 +235,5 @@ class Array(Page):
     self.sync_header()
 
   def __repr__(self):
-    return '''<Array(root=%d, type=%d, format=%s, num_blocks=%d, length=%d)>''' % \
-        (self.root, self.type, self.format, self.num_blocks, self.length)
+    return '''<Array(root=%d, type=%d, format=%s, num_blocks=%d, length=%d, capacity=%d)>''' % \
+        (self.root, self.type, self.format, self.num_blocks, self.length, self.capacity)
