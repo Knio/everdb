@@ -1,5 +1,6 @@
 import array
 from collections import defaultdict
+import weakref
 
 import msgpack
 
@@ -135,6 +136,8 @@ class Bucket(Blob):
 
 
 
+PRIME = 1000000349
+
 class Hash(Bucket):
   size  = Field('Q')
   split = Field('I')
@@ -142,6 +145,7 @@ class Hash(Bucket):
 
   def __init__(self, host, root, new):
     super(Hash, self).__init__(host, root, new)
+    self.blob_cache = weakref.WeakValueDictionary()
 
   def init_root(self):
     self.size = 0
@@ -150,7 +154,7 @@ class Hash(Bucket):
     super(Hash, self).init_root()
 
   def get_bucket(self, key):
-    h = hash(key)
+    h = pow(2, hash(key), PRIME)
     b = h & ((SUB_BUCKET << 1 << self.level) - 1)
     if b >= ((1 << self.level) + self.split) << SUB_BUCKET_BITS:
       # bucket has no yet been split
@@ -162,7 +166,12 @@ class Hash(Bucket):
     if self.level == 0 and self.split == 0:
       blob = self
     else:
-      blob = Bucket(self.host, self.get_host_index(b), False)
+      try:
+        blob = self.blob_cache[b]
+      except KeyError:
+        blob = Bucket(self.host, self.get_host_index(b), False)
+        self.blob_cache[b] = blob
+        self.host.cache(blob)
 
     bucket = blob.get_sub(s)
     return s, blob, bucket
@@ -186,7 +195,6 @@ class Hash(Bucket):
     s, blob, bucket = self.get_bucket(key)
     if key not in bucket:
       self.size += 1
-      # TODO don't do this
       self.sync_header()
 
     bucket[key] = self.pack_value(value)
@@ -250,7 +258,7 @@ class Hash(Bucket):
     bucket1 = defaultdict(dict)
 
     for k, v in bucket.items():
-      h = hash(k)
+      h = pow(2, hash(k), PRIME)
       b = h & ((SUB_BUCKET << 1 << self.level) - 1)
       u = b & SUB_BUCKET_MASK
       b >>= SUB_BUCKET_BITS
@@ -268,9 +276,8 @@ class Hash(Bucket):
     for sub, d in bucket1.items():
       b1.set_sub(sub, d)
 
-    # print('split into %d and %d' % (s0, s1))
-    # print('  %r' % bucket0)
-    # print('  %r' % bucket1)
+    # print('split into %d (%d) and %d (%d)' %
+    #     (s0, s1, len(bucket0), len(bucket1)))
 
     if s + 1 == (1 << self.level):
       self.level += 1

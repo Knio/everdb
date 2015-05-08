@@ -2,11 +2,13 @@ import os
 
 import msgpack
 import pytest
+import random
 
 import everdb
 import everdb.hash
 
-TEST_NAME = 'test_archive.deleteme.dat'
+TEST_NAME = '_everdb.test.deleteme'
+
 
 def test_hash():
   assert everdb.Hash._header == [
@@ -26,15 +28,13 @@ def test_hash():
 
   # import pdb
   # pdb.set_trace()
-  P = 10000357
-  N = 2000
+  N = 1000
+  S = list(set(random.randint(0, 10000000) for i in range(N)))
   try:
-    for i in range(P, P + N):
-      if i == 10000548:
-        debug_hash(hs)
-      hs[i] = i
-      assert hs[i] == i
-      assert len(hs) == i - P + 1
+    for i, v in enumerate(S):
+      hs[v] = i
+      assert hs[v] == i
+      assert len(hs) == i + 1
 
   finally:
     pass
@@ -49,10 +49,10 @@ def test_hash():
   db.freelist = []
   hs = everdb.Hash(db, r, new=False)
 
-  assert len(hs) == N
-  for i in range(P, P + N):
+  assert len(hs) == len(S)
+  for i, v in enumerate(S):
     # print('%d: %d' % (i, ar[i]))
-    assert hs[i] == i
+    assert hs[v] == i
 
 
   hs.close()
@@ -64,9 +64,10 @@ def test_hash():
   db.freeelist = []
   hs = everdb.Hash(db, r, new=False)
 
-  assert len(hs) == N
-  for i in range(P + N - 1, P - 1, -1):
-    assert hs.pop(i) == i
+  assert len(hs) == len(S)
+  for i, v in enumerate(S):
+    assert hs.pop(v) == i
+    assert len(hs) == len(S) - i - 1
 
   with pytest.raises(KeyError):
     x = hs.pop(1)
@@ -75,10 +76,6 @@ def test_hash():
   db.close()
 
   os.remove(TEST_NAME)
-
-
-if __name__ == '__main__':
-  test_hash()
 
 
 def debug_bucket(b):
@@ -100,3 +97,6 @@ def debug_hash(h):
       b = everdb.hash.Bucket(h.host, h.get_host_index(i), False)
       debug_bucket(b)
 
+
+if __name__ == '__main__':
+  test_hash()

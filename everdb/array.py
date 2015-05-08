@@ -14,6 +14,18 @@ from .page import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
 class Array(Page):
   format    = Field('c')
   length    = Field('Q')
+  # __slots__ = [
+  #   'length',
+  #   'format',
+  #   'format_ascii',
+  #   'item_size',
+  #   'items_per_block',
+  #   'block_cache',
+  #   'num_blocks',
+  #   'type',
+  #   'host',
+  #   'root',
+  # ]
 
   def __init__(self, host, root, format, new):
     self.format = format.encode('ascii')
@@ -70,7 +82,11 @@ class Array(Page):
       j = i // self.items_per_block
       k = i  % self.items_per_block
 
-    b = self.get_array_block(j)
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
     return b[k]
 
   def __setitem__(self, i, v):
@@ -91,7 +107,11 @@ class Array(Page):
       j = i // self.items_per_block
       k = i  % self.items_per_block
 
-    b = self.get_array_block(j)
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
     b[k] = v
     return v
 

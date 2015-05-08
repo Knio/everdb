@@ -21,12 +21,10 @@ class Benchmark(object):
 
   def benchmark(self, n=100000):
     self.setup(n)
-
     try:
       start_time = time.time()
       self.run(n)
       end_time = time.time()
-
     finally:
       self.teardown()
 
@@ -48,16 +46,20 @@ class Benchmark(object):
         float(n)/d/1000
     ))
 
-  def profile(self, n=100000):
-    self.setup(n)
-
+  def profile(self, n=10000):
     pr = profile.Profile()
-    pr.enable()
-    self.run(n)
-    pr.disable()
+
+    self.setup(n)
+    try:
+      pr.enable()
+      self.run(n)
+      pr.disable()
+    finally:
+      self.teardown()
 
     ps = pstats.Stats(pr).sort_stats('cumulative')
-    ps.print_stats()
+    print('    %-10s' % type(self).__name__.split('Benchmark')[1])
+    ps.print_stats(10)
 
 
 def main():
@@ -253,7 +255,7 @@ class ArrayPopBenchmarkList(Benchmark):
 class HashInsertBenchmarkEverdb(Benchmark):
   def setup(self, n):
     self.db = everdb.open(TEST_NAME, overwrite=True)
-    self.hs = ar = self.db.hash()
+    self.hs = self.db.hash()
 
   def run(self, n):
     hs = self.hs

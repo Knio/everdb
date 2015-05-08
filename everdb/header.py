@@ -9,10 +9,15 @@ class Field(str): pass
 
 class HeaderMeta(type):
   def __init__(cls, name, bases, dct):
+    h = []
+    for k, v in list(dct.items()):
+      if isinstance(v, Field):
+        h.append((k, v))
+        del dct[k]
+
     super(HeaderMeta, cls).__init__(name, bases, dct)
-    h = sorted(
-      [(k, v) for k,v in dct.items() if isinstance(v, Field)],
-      key=lambda x:(struct.calcsize(x[1]), x[0]))
+
+    h.sort(key=lambda x:(struct.calcsize(x[1]), x[0]))
 
     for b in bases:
       n = getattr(b, '_header', None)
