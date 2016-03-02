@@ -136,7 +136,7 @@ class Bucket(Blob):
 
 
 
-PRIME = 1000000349
+PRIME = 2000000333
 
 class Hash(Bucket):
   size  = Field('Q')
@@ -176,28 +176,18 @@ class Hash(Bucket):
     bucket = blob.get_sub(s)
     return s, blob, bucket
 
-  def pack_value(self, val):
-    return 0, val
-
-  def unpack_value(self, val):
-    t, v = val
-    if t == 0:
-      return v
-    else:
-      raise Exception('could not unpack value from hash table: %r' % val)
-
   def get(self, key):
     s, blob, bucket = self.get_bucket(key)
     val = bucket[key]
-    return self.unpack_value(val)
+    return val
 
-  def set(self, key, value):
+  def set(self, key, val):
     s, blob, bucket = self.get_bucket(key)
     if key not in bucket:
       self.size += 1
       self.sync_header()
 
-    bucket[key] = self.pack_value(value)
+    bucket[key] = val
     blob.set_sub(s, bucket)
     if blob.length >= 3072:
       self.grow()
@@ -206,14 +196,14 @@ class Hash(Bucket):
   def pop(self, key):
     s, blob, bucket = self.get_bucket(key)
 
-    value = bucket.pop(key)
+    val = bucket.pop(key)
     blob.set_sub(s, bucket)
 
     self.size -= 1
     self.sync_header()
 
     # TODO shrink
-    return self.unpack_value(value)
+    return val
 
   def delete(self, key):
     self.pop(key)
@@ -287,7 +277,3 @@ class Hash(Bucket):
       self.split += 1
 
     self.sync_header()
-
-    for k, v in bucket.items():
-      assert [0, self[k]] == v
-

@@ -32,8 +32,8 @@ class Benchmark(object):
     return duration
 
   def bench(self):
-    T = 0.40
-    n = 1000
+    T = 0.20
+    n = 500
     d = 0
     while 1:
       d = self.benchmark(n)
@@ -112,7 +112,7 @@ class ArrayAppendBenchmarkEverdb(Benchmark):
     os.remove(TEST_NAME)
 
 
-class ArrayAppendBenchmarkList(Benchmark):
+class ArrayAppendBenchmarkNative(Benchmark):
   def setup(self, n):
     self.ar = []
 
@@ -143,7 +143,7 @@ class ArrayAppendBenchmarkSqlite(Benchmark):
     os.remove(TEST_NAME + '.sql')
 
 
-class ArrayIterateBenchmarkList(Benchmark):
+class ArrayIterateBenchmarkNative(Benchmark):
   def setup(self, n):
     self.ar = list(range(n))
 
@@ -239,7 +239,7 @@ class ArrayPopBenchmarkSqlite(Benchmark):
     os.remove(TEST_NAME + '.sql')
 
 
-class ArrayPopBenchmarkList(Benchmark):
+class ArrayPopBenchmarkNative(Benchmark):
   def setup(self, n):
     self.ar = list(range(n))
 
@@ -269,9 +269,75 @@ class HashInsertBenchmarkEverdb(Benchmark):
     os.remove(TEST_NAME)
 
 
-class HashInsertBenchmarkDict(Benchmark):
+class HashInsertBenchmarkNative(Benchmark):
   def setup(self, n):
     self.hs = {}
+
+  def run(self, n):
+    hs = self.hs
+    for i in range(n):
+      hs[i] = i
+
+  def teardown(self):
+    self.hs.clear()
+
+
+class HashGetBenchmarkEverdb(Benchmark):
+  def setup(self, n):
+    self.db = everdb.open(TEST_NAME, overwrite=True)
+    self.hs = hs = self.db.hash()
+    for i in range(n):
+      hs[i] = i
+    hs.flush()
+
+  def run(self, n):
+    hs = self.hs
+    for i in range(n):
+      x = hs[i]
+
+  def teardown(self):
+    self.hs.close()
+    self.db.close()
+    os.remove(TEST_NAME)
+
+class HashGetBenchmarkNative(Benchmark):
+  def setup(self, n):
+    self.hs = hs = {}
+    for i in range(n):
+      hs[i] = i
+
+  def run(self, n):
+    hs = self.hs
+    for i in range(n):
+      x = hs[i]
+
+  def teardown(self):
+    self.hs.clear()
+
+
+class HashSetBenchmarkEverdb(Benchmark):
+  def setup(self, n):
+    self.db = everdb.open(TEST_NAME, overwrite=True)
+    self.hs = hs = self.db.hash()
+    for i in range(n):
+      hs[i] = i
+    hs.flush()
+
+  def run(self, n):
+    hs = self.hs
+    for i in range(n):
+      hs[i] = i
+
+  def teardown(self):
+    self.hs.close()
+    self.db.close()
+    os.remove(TEST_NAME)
+
+class HashSetBenchmarkNative(Benchmark):
+  def setup(self, n):
+    self.hs = hs = {}
+    for i in range(n):
+      hs[i] = i
 
   def run(self, n):
     hs = self.hs
