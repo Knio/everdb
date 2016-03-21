@@ -14,7 +14,7 @@ hash_db* hash_open(
         goto err;
     }
 
-    #ifdef windows
+    #ifdef WIN32
     db->h_file = CreateFile(fname,
         readonly ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE),
         0,
