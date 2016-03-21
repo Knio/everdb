@@ -3,32 +3,43 @@
 
 #include <stdint.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #else
 
 #endif
 
-typedef struct {
-#ifdef WIN32
-    HANDLE h_file;
-    HANDLE h_map;
-#else
-    void* h_file;
-    void* h_map;
-#endif
-    uint64_t size;
-} hash_db;
+/**
+ * Hashdb object
+ */
+typedef struct hashdb_s* hashdb;
 
 
-hash_db* hash_open(
-    const char* f_name, bool readonly, bool overwrite);
+/**
+ * Open or create a hashdb file
+ */
+hashdb hash_open(const char* f_name, int readonly, int overwrite);
 
-char* hash_get(
-    const char* key, uint32_t nkey);
+/**
+ * lookup a key
+ * @return value of key
+ */
+char* hash_get(const hashdb db, const char* key, uint32_t nkey);
 
-bool hash_put(
-    const char* key, uint32_t nkey,
-    const char* value, uint32_t nvalue);
+/**
+ * Insert or overwrite a key
+ */
+int hash_put(hashdb db, const char* key, uint32_t nkey, const char* value,
+             uint32_t nvalue);
+
+/**
+ * Initialize a new empty db
+ */
+int hash_init(hashdb db);
+
+/**
+ * Check header / checksums / etc
+ */
+int hash_check(const hashdb db);
 
 #endif
