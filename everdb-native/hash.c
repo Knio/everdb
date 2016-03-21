@@ -25,6 +25,8 @@ int hash_open(hashdb *db, const char* fname, HASHDB_OPENMODE openmode) {
     int ret = 0;
 
     *db = (hashdb) malloc(sizeof(**db));
+    memset(db, 0, sizeof(**db));
+    (*db)->h_file = NULL;
 
     if (*db == NULL) {
         // allocate error
