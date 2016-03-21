@@ -20,7 +20,7 @@ typedef struct hashdb_s* hashdb;
  * The database or null is returned in the hashdb param
  * @return 0 on success, -1 on open error, other values on other errors
  */
-int hash_open(const char* f_name, HASHDB_OPENMODE openmode, hashdb *db);
+int hash_open(hashdb *db, const char* f_name, HASHDB_OPENMODE openmode);
 
 /**
  * lookup a key

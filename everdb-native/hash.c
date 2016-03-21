@@ -20,7 +20,7 @@ struct hashdb_s {
 };
 
 
-int hash_open(const char* fname, HASHDB_OPENMODE openmode, hashdb *db) {
+int hash_open(hashdb *db, const char* fname, HASHDB_OPENMODE openmode) {
     *db = NULL;
     int ret = 0;
 
