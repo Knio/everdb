@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-
-#endif
+typedef enum {
+    HASH_RW,
+    HASH_RO,
+    HASH_OW
+} HASHDB_OPENMODE;
 
 /**
  * Hashdb object
@@ -17,8 +17,10 @@ typedef struct hashdb_s* hashdb;
 
 /**
  * Open or create a hashdb file
+ * The database or null is returned in the hashdb param
+ * @return 0 on success, -1 on open error, other values on other errors
  */
-hashdb hash_open(const char* f_name, int readonly, int overwrite);
+int hash_open(const char* f_name, HASHDB_OPENMODE openmode, hashdb *db);
 
 /**
  * lookup a key

@@ -4,9 +4,10 @@
 int main() {
     printf("Hello World\n");
 
-    hashdb db = hash_open("test.db", FALSE, TRUE);
+    hashdb db = NULL;
+    int ret = hash_open("test.db", HASH_OW, &db);
     if (db == NULL) {
-        printf("open error\n");
+        printf("open error %d\n", ret);
         return -1;
     }
 
