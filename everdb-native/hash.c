@@ -7,6 +7,7 @@
 #endif
 
 
+int _hash_map(hash *db, uint64_t size);
 void _hash_map_close(hash *db);
 
 int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
