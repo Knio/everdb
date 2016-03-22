@@ -1,23 +1,28 @@
 everdb
 ======
 
-*everdb* is an embedded database system. It operates
-as a programming library with APIs to read, write, and access data structures contained in a single database file.
+*everdb* is an embedded database system. It operates as a programming library
+with APIs to read, write, and access data structures contained in a single
+database file.
 
-[![Build Status](https://travis-ci.org/Knio/everdb.svg)](https://travis-ci.org/Knio/everdb)
-[![Coverage Status](https://img.shields.io/coveralls/Knio/everdb.svg)](https://coveralls.io/r/Knio/everdb)
+[![Build Status][buildlogo]](https://travis-ci.org/Knio/everdb)
+[![Coverage Status][coveragelogo]](https://coveralls.io/r/Knio/everdb)
+
+[buildlogo]: https://travis-ci.org/Knio/everdb.svg
+[coveragelogo]: https://img.shields.io/coveralls/Knio/everdb.svg
 
 *everdb* is:
 * Embedded (your application opens the database file directly)
 * Single-user (only one process can open the file at a time)
 * ACID complient (supports transactions and guarantees data reliability)
-* Efficient (datastructures are fast, all operations do not need to load
-    large structures into memory, optimized for 4K RAM/disk sizes, etc)
+* Efficient (datastructures are fast, all operations do not need to load large
+  structures into memory, optimized for 4K RAM/disk sizes, etc)
 
 
 *everdb* is not:
 * Client-server (you do not connect to a database server)
-* SQL (or NoSQL) (you operate on the database structures directly though a programming API, not by writing queries in SQL or JS)
+* SQL (or NoSQL) (you operate on the database structures directly though a
+  programming API, not by writing queries in SQL or JS)
 
 
 TODO
@@ -44,9 +49,12 @@ everdb supports three data structures: Blobs, Arrays, and Hashes.
 Blobs
 -----
 
-A Blob is a an arbitrary sized array of bytes, similar to the `bytrarray` Python type. The maximum size of a blob is slightly under 2GiB (2128609280B).
-Blobs can be accessed similar to a `bytearray` or `file` object.
-Indexing, slicing, and appending to a blob is space efficient and only loads the required data into memory, and not the entire blob. An empty blob takes a minimum of 4Kib (1 page) of space in memory and on disk.
+A Blob is a an arbitrary sized array of bytes, similar to the `bytrarray` Python
+type. The maximum size of a blob is slightly under 2GiB (2128609280B).  Blobs
+can be accessed similar to a `bytearray` or `file` object.  Indexing, slicing,
+and appending to a blob is space efficient and only loads the required data into
+memory, and not the entire blob. An empty blob takes a minimum of 4Kib (1 page)
+of space in memory and on disk.
 
 ```python
 blob = db.blob() -> Blob object
@@ -69,7 +77,10 @@ blob.append(bytestr) # append bytes to end of blob, causing it to grow in size
 Arrays
 ------
 
-An Array is similar to a blob, but instead of bytes, the content can be any single format supported by the `struct` module. Arrays have the same API as Python `list`, except that items can only be popped or inserted on the end of the array.
+An Array is similar to a blob, but instead of bytes, the content can be any
+single format supported by the `struct` module. Arrays have the same API as
+Python `list`, except that items can only be popped or inserted on the end of
+the array.
 
 ```python
 array = db.array('I') # unsigned int32
@@ -112,8 +123,8 @@ Small Blob: A blob that fits in 1 page of memory. Can hold up to 4080 bytes
 4096
 ```
 
-A small blob will automatically convert to a regular blob if requested to
-grow past 4080 bytes.
+A small blob will automatically convert to a regular blob if requested to grow
+past 4080 bytes.
 
 Regular Blob: page pointers and page table pointers.
 
@@ -155,38 +166,11 @@ TODO
 Hashes
 ------
 
-A hash table is implemented using a Blob, where each 4KB block in the blob
-is a hash bucket. Each bucket is further split into 128 sub-buckets,
-which are allocated via a 128 {uint16 start, end} header at the start of
-the bucket.
+A hash table is implemented using a Blob, where each 4KB block in the blob is a
+hash bucket. Each bucket is further split into 128 sub-buckets, which are
+allocated via a 128 {uint16 start, end} header at the start of the bucket.
 
 Buckets are allocated using linear hashing.
 
 Assume ~16 bytes per bucket (modes 0, ~16, ~32, ~48)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
