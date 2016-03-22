@@ -3,12 +3,6 @@
 
 #include <stdint.h>
 
-typedef enum {
-    HASH_RW,
-    HASH_RO,
-    HASH_OW
-} HASHDB_OPENMODE;
-
 /**
  * Hashdb object
  */
@@ -20,7 +14,7 @@ typedef struct hashdb_s* hashdb;
  * The database or null is returned in the hashdb param
  * @return 0 on success, -1 on open error, other values on other errors
  */
-int hash_open(hashdb *db, const char* f_name, HASHDB_OPENMODE openmode);
+int hash_open(hashdb *db, const char* f_name, int readonly, int overwrite);
 
 /**
  * lookup a key

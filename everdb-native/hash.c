@@ -10,23 +10,23 @@
 #endif
 
 struct hashdb_s {
-    FILE* h_file;
 #ifdef _WIN32
+    HANDLE h_file;
     HANDLE h_map;
 #else
+    FILE* h_file;
     void* h_map;
 #endif
     uint64_t size;
 };
 
 
-int hash_open(hashdb *db, const char* fname, HASHDB_OPENMODE openmode) {
+int hash_open(hashdb *db, const char* fname, int readonly, int overwrite) {
     *db = NULL;
     int ret = 0;
 
     *db = (hashdb) malloc(sizeof(**db));
-    memset(db, 0, sizeof(**db));
-    (*db)->h_file = NULL;
+    memset(*db, 0, sizeof(**db));
 
     if (*db == NULL) {
         // allocate error
@@ -34,31 +34,30 @@ int hash_open(hashdb *db, const char* fname, HASHDB_OPENMODE openmode) {
         goto err;
     }
 
-    switch(openmode) {
-    case HASH_RW:
-        (*db)->h_file = fopen(fname, "a+b");
-        break;
-    case HASH_RO:
-        (*db)->h_file = fopen(fname, "rb");
-        break;
-    case HASH_OW:
-        (*db)->h_file = fopen(fname, "w+b");
-        break;
+#ifdef _WIN32
+    if (readonly && overwrite) {
+        ret = -4;
+        goto err;
     }
-
+    (*db)->h_file = CreateFileA(fname,
+        readonly ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE),
+        0,
+        NULL,
+        overwrite ? CREATE_ALWAYS : OPEN_ALWAYS,
+        0,
+        NULL
+    );
     if ((*db)->h_file == NULL) {
         ret = -1;
         goto err;
     }
 
-#ifdef _WIN32
-    __int64 size = _filelengthi64(_fileno((*db)->h_file));
-    if (size < 0) {
+    LARGE_INTEGER f_size;
+    if (!GetFileSizeEx((*db)->h_file, &f_size)) {
         ret = -3;
         goto err;
     }
-    (*db)->size = size;
-
+    (*db)->size = f_size.QuadPart;
 #else
     //linux here
 #endif
@@ -76,7 +75,9 @@ int hash_open(hashdb *db, const char* fname, HASHDB_OPENMODE openmode) {
 
     err:
     if((*db)->h_file != NULL) {
-        fclose((*db)->h_file);
+#ifdef _WIN32
+        CloseHandle((*db)->h_file);
+#endif
     }
     if(*db != NULL) {
         free(*db);
