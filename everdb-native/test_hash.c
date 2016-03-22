@@ -2,14 +2,32 @@
 #include "hash.h"
 
 int main() {
-    printf("Hello World\n");
+    printf("Testing..\n");
 
-    hashdb db = NULL;
+    hash db;
+
+    // open new db + overwrite
     int ret = hash_open(&db, "test.db", 0, 1);
-    if (db == NULL) {
+    if (ret) {
         printf("open error %d\n", ret);
         return -1;
     }
 
+    printf("%p\n", db.data);
+
+    // hacks
+    memcpy(db.data, "test 123", 8);
+
+    // save it
+    hash_close(&db);
+
+    // open it again and see if data still there
+    if (!memcmp(db.data, "test 123", 8)) {
+        printf("Data error: %*s", 8, (char*)db.data);
+    }
+
+
+
+    printf("Hello World\n");
     return 0;
 }
