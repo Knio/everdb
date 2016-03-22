@@ -17,16 +17,16 @@
  * Hashdb object
  */
 typedef struct {
-    int readonly;
+  int readonly;
 #ifdef _WIN32
-    HANDLE h_file;
-    HANDLE h_mapping;
+  HANDLE h_file;
+  HANDLE h_mapping;
 #else
-    int h_file;
-    void* h_map;
+  int h_file;
+  void* h_map;
 #endif
-    void* data;
-    uint64_t size;
+  void* data;
+  uint64_t size;
 } hash;
 
 
@@ -36,8 +36,8 @@ typedef struct {
  * @return 0 on success, -1 on open error, other values on other errors
  */
 int hash_open(hash *db, const char* f_name,
-        int readonly,
-        int overwrite);
+    int readonly,
+    int overwrite);
 
 
 void hash_close(hash *db);
@@ -47,14 +47,14 @@ void hash_close(hash *db);
  * @return value of key
  */
 char* hash_get(const hash *db,
-        const char* key, uint32_t nkey);
+    const char* key, uint32_t nkey);
 
 /**
  * Insert or overwrite a key
  */
 int hash_put(hash *db,
-        const char* key, uint32_t nkey,
-        const char* value, uint32_t nvalue);
+    const char* key, uint32_t nkey,
+    const char* value, uint32_t nvalue);
 
 /**
  * Initialize a new empty db
