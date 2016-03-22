@@ -8,7 +8,7 @@ as a programming library with APIs to read, write, and access data structures co
 [![Coverage Status](https://img.shields.io/coveralls/Knio/everdb.svg)](https://coveralls.io/r/Knio/everdb)
 
 *everdb* is:
-* Embedded (your application opens the databae file directly)
+* Embedded (your application opens the database file directly)
 * Single-user (only one process can open the file at a time)
 * ACID complient (supports transactions and guarantees data reliability)
 * Efficient (datastructures are fast, all operations do not need to load
