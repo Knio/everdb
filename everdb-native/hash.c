@@ -3,6 +3,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 #endif
 
@@ -38,7 +42,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     overwrite ? CREATE_ALWAYS : OPEN_ALWAYS,
     0, NULL
   );
-  if (db->h_file == NULL) {
+  if (db->h_file == INVALID_HANDLE_VALUE) {
     ret = -1;
     goto err;
   }
@@ -49,7 +53,23 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     goto err;
   }
   db->size = f_size.QuadPart;
-
+#else
+  db->h_file = open(fname,
+    (readonly ? O_RDONLY : O_RDRW) |
+    O_CREAT | (overwrite ? O_TRUNC : 0),
+    0644
+  );
+  if (db->h_file < 0) {
+    ret = -1;
+    goto err;
+  }
+  stat fi;
+  if (fstat(db->h_file, &fi) < 0 ) {
+    ret = -3;
+    goto err;
+  }
+  db->size = fi.off_t;
+#endif
   if (db->size & BLOCK_MASK) {
     ret = -5;
     goto err;
@@ -62,11 +82,6 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
   }
 
   hash_map(db, size);
-
-#else
-  //linux here
-  ret = -9;
-#endif
 
   if (db->size == 0) {
     // new or overwritten file
@@ -94,16 +109,21 @@ void hash_close(hash *db) {
 
   hash_map_close(db);
   #ifdef _WIN32
-  if (db->h_file != NULL) {
+  if (db->h_file != INVALID_HANDLE_VALUE) {
     CloseHandle(db->h_file);
-    db->h_file = NULL;
+    db->h_file = INVALID_HANDLE_VALUE;
+  }
+  #else
+  if (db->h_file >= 0) {
+    close(db->h_file);
+    db->h_file = -1;
   }
   #endif
 }
 
 void hash_map_close(hash *db) {
   if (db == NULL) return;
-
+#ifdef _WIN32
   if (db->data != NULL) {
     UnmapViewOfFile(db->data);
     db->data = NULL;
@@ -113,6 +133,12 @@ void hash_map_close(hash *db) {
     CloseHandle(db->h_mapping);
     db->h_mapping = NULL;
   }
+#else
+  if(db->data != MAP_FAILED) {
+    munmap(db->data, db->size);
+    db->data = MAP_FAILED;
+  }
+#endif
 }
 
 int hash_map(hash *db, uint64_t size) {
@@ -148,8 +174,19 @@ int hash_map(hash *db, uint64_t size) {
   db->size = size;
 
 #else
-    // linux here
-  ret = -9;
+  db->data = mmap(
+    NULL,
+    size,
+    PROT_READ |
+      (db->readonly ? 0 : PROT_WRITE),
+    MAP_SHARED,
+    db->h_file,
+    0
+  );
+  if(db->data == MAP_FAILED) {
+    ret = -9;
+    goto err;
+  }
 #endif
 
   return ret;
