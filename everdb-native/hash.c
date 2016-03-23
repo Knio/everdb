@@ -7,8 +7,15 @@
 #endif
 
 
-int _hash_map(hash *db, uint64_t size);
-void _hash_map_close(hash *db);
+int
+hash_map(hash *db, uint64_t size);
+void
+hash_map_close(hash *db);
+int
+hash_init(hash *db);
+int
+hash_check(const hash *db);
+
 
 int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
   int ret = 0;
@@ -54,7 +61,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     size = BLOCK_SIZE;
   }
 
-  _hash_map(db, size);
+  hash_map(db, size);
 
 #else
   //linux here
@@ -85,7 +92,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
 void hash_close(hash *db) {
   if (db == NULL) return;
 
-  _hash_map_close(db);
+  hash_map_close(db);
   #ifdef _WIN32
   if (db->h_file != NULL) {
     CloseHandle(db->h_file);
@@ -94,7 +101,7 @@ void hash_close(hash *db) {
   #endif
 }
 
-void _hash_map_close(hash *db) {
+void hash_map_close(hash *db) {
   if (db == NULL) return;
 
   if (db->data != NULL) {
@@ -108,13 +115,13 @@ void _hash_map_close(hash *db) {
   }
 }
 
-int _hash_map(hash *db, uint64_t size) {
+int hash_map(hash *db, uint64_t size) {
   if (db == NULL) return -1;
   int ret = 0;
 
 #ifdef _WIN32
 
-  _hash_map_close(db);
+  hash_map_close(db);
 
   db->h_mapping = CreateFileMapping(
     db->h_file,
@@ -148,7 +155,7 @@ int _hash_map(hash *db, uint64_t size) {
   return ret;
 
   err:
-  _hash_map_close(db);
+  hash_map_close(db);
   db->size = 0;
   return ret;
 }

@@ -12,6 +12,9 @@
 #define BLOCK_SIZE (1 << BLOCK_BITS)
 #define BLOCK_MASK (BLOCK_SIZE - 1)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Hashdb object
@@ -65,5 +68,9 @@ int hash_init(hash *db);
  * Check header / checksums / etc
  */
 int hash_check(const hash *db);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
