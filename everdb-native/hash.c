@@ -58,7 +58,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
   db->size = f_size.QuadPart;
 #elif __linux__
   db->h_file = open(fname,
-    (readonly ? O_RDONLY : O_RDRW) |
+    (readonly ? O_RDONLY : O_RDWR) |
     (overwrite ? O_TRUNC : 0) |
     O_CREAT,
     0644
