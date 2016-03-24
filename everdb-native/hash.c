@@ -58,7 +58,8 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
 #elif __linux__
   db->h_file = open(fname,
     (readonly ? O_RDONLY : O_RDRW) |
-    O_CREAT | (overwrite ? O_TRUNC : 0),
+    (overwrite ? O_TRUNC : 0) |
+    O_CREAT,
     0644
   );
   if (db->h_file < 0) {
