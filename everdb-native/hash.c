@@ -2,12 +2,14 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#else
+#elif __linux__
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#else
+#error Unsupported OS
 #endif
 
 
@@ -53,7 +55,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     goto err;
   }
   db->size = f_size.QuadPart;
-#else
+#elif __linux__
   db->h_file = open(fname,
     (readonly ? O_RDONLY : O_RDRW) |
     O_CREAT | (overwrite ? O_TRUNC : 0),
@@ -108,17 +110,17 @@ void hash_close(hash *db) {
   if (db == NULL) return;
 
   hash_map_close(db);
-  #ifdef _WIN32
+#ifdef _WIN32
   if (db->h_file != INVALID_HANDLE_VALUE) {
     CloseHandle(db->h_file);
     db->h_file = INVALID_HANDLE_VALUE;
   }
-  #else
+#elif __linux__
   if (db->h_file >= 0) {
     close(db->h_file);
     db->h_file = -1;
   }
-  #endif
+#endif
 }
 
 void hash_map_close(hash *db) {
@@ -133,7 +135,7 @@ void hash_map_close(hash *db) {
     CloseHandle(db->h_mapping);
     db->h_mapping = NULL;
   }
-#else
+#elif __linux__
   if(db->data != MAP_FAILED) {
     munmap(db->data, db->size);
     db->data = MAP_FAILED;
@@ -173,7 +175,7 @@ int hash_map(hash *db, uint64_t size) {
   }
   db->size = size;
 
-#else
+#elif __linux__
   db->data = mmap(
     NULL,
     size,

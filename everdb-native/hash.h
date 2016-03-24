@@ -24,9 +24,10 @@ typedef struct {
 #ifdef _WIN32
   HANDLE h_file;
   HANDLE h_mapping;
-#else
+#elif __linux__
   int h_file;
-  void* h_map;
+#else
+#error Unsupported OS
 #endif
   void* data;
   uint64_t size;
