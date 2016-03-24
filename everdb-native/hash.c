@@ -85,7 +85,11 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     size = BLOCK_SIZE;
   }
 
-  hash_map(db, size);
+  ret -= hash_map(db, size);
+  if (ret < 0) {
+    ret -= 100;
+    goto err;
+  }
 
   if (db->size == 0) {
     // new or overwritten file
