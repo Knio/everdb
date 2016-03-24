@@ -67,12 +67,12 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     ret = -1;
     goto err;
   }
-  stat fi;
+  struct stat fi;
   if (fstat(db->h_file, &fi) < 0 ) {
     ret = -3;
     goto err;
   }
-  db->size = fi.off_t;
+  db->size = fi.st_size;
 #endif
   if (db->size & BLOCK_MASK) {
     ret = -5;
