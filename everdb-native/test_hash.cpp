@@ -3,6 +3,9 @@
 
 #include "hash.h"
 
+#ifdef __linux__
+#include "string.h" //memcpy
+#endif
 
 TEST_CASE() {
 
