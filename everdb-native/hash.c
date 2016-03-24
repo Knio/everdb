@@ -153,10 +153,8 @@ int hash_map(hash *db, uint64_t size) {
   if (db == NULL) return -1;
   int ret = 0;
 
-#ifdef _WIN32
-
   hash_map_close(db);
-
+#ifdef _WIN32
   db->h_mapping = CreateFileMapping(
     db->h_file,
     NULL,
@@ -179,9 +177,19 @@ int hash_map(hash *db, uint64_t size) {
     ret = -9;
     goto err;
   }
-  db->size = size;
-
 #elif __linux__
+  if (db->size < size) {
+    if (fallocate(db->h_file, 0, 0, size) < 0) {
+      ret = -11;
+      goto err;
+    }
+  }
+  if (db->size > size) {
+    if (ftruncate(db->h_file, size) < 0) {
+      ret = -12;
+      goto err;
+    }
+  }
   db->data = mmap(
     NULL,
     size,
@@ -196,6 +204,7 @@ int hash_map(hash *db, uint64_t size) {
     goto err;
   }
 #endif
+  db->size = size;
 
   return ret;
 
