@@ -7,7 +7,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/mman.h>
+#include <sys/mman.h> //mmap
+#include <string.h> //memset
 #else
 #error Unsupported OS
 #endif
