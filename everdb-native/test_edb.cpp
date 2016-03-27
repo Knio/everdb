@@ -2,6 +2,9 @@
 #include "lib/catch.hpp"
 
 #include "edb.h"
+extern "C" {
+#include "edb.c"
+}
 
 #ifdef __linux__
 #include "string.h" //memcpy
@@ -32,5 +35,11 @@ TEST_CASE() {
 
   }
 
+  SECTION("Resize") {
+    REQUIRE(edb_map(&db, 8192) == 0);
+    REQUIRE(db.size == 8192);
+  }
+
+  edb_close(&db);
 
 }

@@ -1,24 +1,15 @@
-#include "hash.h"
+#include "edb.h"
 #include "page.h"
 
-typedef struct {
-    u32 nblocks;
-    u32 checksum;
-} page_header;
-
-typedef void* block;
-
 // get the host index of a relative index in a page table
-u32 get_host_index(hash_db *db, const u32 page, const u32 index) {
-  block page_table = BLOCK(db->data, page);
-  const page_header *ph = *((page_header*) (
-      page_table + BLOCK_SIZE - sizeof page_header));
-
-  if (ph.nblocks < index) {
+u32 get_host_index(edb *db, const u32 page, const u32 index) {
+  char* page_table = BLOCK(db->data, page);
+  const page_header *ph = HEADER(page_table, page_header);
+  if (ph->nblocks < index) {
     return -1;
   }
 
-  if (ph.nblocks == 0) {
+  if (ph->nblocks == 0) {
     // small block
     return page;
   }
@@ -34,25 +25,28 @@ u32 get_host_index(hash_db *db, const u32 page, const u32 index) {
   return block_ptrs[INDEX1(index)];
 }
 
-void init_page(hash_db *db, const u32 page) {
+void init_page(edb *db, const u32 page) {
   block page_table = BLOCK(db->data, page);
   const page_header *ph = *((page_header*) (
       page_table + BLOCK_SIZE - sizeof page_header));
 
   memset(page_table, 0, BLOCK_SIZE);
+
+  // TODO
+  exit(1);
 }
 
-void allocate(hash_db *db, const u32 page, const u32 nblocks) {
+void allocate(edb *db, const u32 page, const u32 nblocks) {
   block page_table = BLOCK(db->data, page);
   const page_header *ph = *((page_header*) (
       page_table + BLOCK_SIZE - sizeof page_header));
 
 
-  while (ph.nblocks < nblocks) {
+  while (ph->nblocks < nblocks) {
     // grow
   }
 
-  while (ph.nblocks > nblocks) {
+  while (ph->nblocks > nblocks) {
     // shrink
   }
 

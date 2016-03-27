@@ -1,4 +1,5 @@
 #include "edb.h"
+#include "page.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -68,7 +69,7 @@ int edb_open(edb *db, const char* fname, int readonly, int overwrite) {
     goto err;
   }
   struct stat fi;
-  if (fstat(db->h_file, &fi) < 0 ) {
+  if (fstat(db->h_file, &fi) < 0) {
     ret = -3;
     goto err;
   }
@@ -85,7 +86,7 @@ int edb_open(edb *db, const char* fname, int readonly, int overwrite) {
     size = BLOCK_SIZE;
   }
 
-  ret -= edb_map(db, size);
+  ret = edb_map(db, size);
   if (ret < 0) {
     ret -= 100;
     goto err;

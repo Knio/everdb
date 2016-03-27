@@ -1,5 +1,5 @@
-#ifndef HASH_H
-#define HASH_H
+#ifndef EDB_H
+#define EDB_H
 
 #include <stdint.h>
 
@@ -28,7 +28,7 @@ typedef struct {
   int h_file;
   void* h_map;
 #endif
-  void* data;
+  char* data;
   uint64_t size;
 } edb;
 
@@ -41,7 +41,6 @@ typedef struct {
 int edb_open(edb *db, const char* f_name,
     int readonly,
     int overwrite);
-
 
 void edb_close(edb *db);
 
