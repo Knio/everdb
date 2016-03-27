@@ -1,4 +1,4 @@
-#include "hash.h"
+#include "edb.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -15,19 +15,19 @@
 
 
 int
-hash_map(hash *db, uint64_t size);
+edb_map(edb *db, uint64_t size);
 void
-hash_map_close(hash *db);
+edb_map_close(edb *db);
 int
-hash_init(hash *db);
+edb_init(edb *db);
 int
-hash_check(const hash *db);
+edb_check(const edb *db);
 
 
-int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
+int edb_open(edb *db, const char* fname, int readonly, int overwrite) {
   int ret = 0;
 
-  memset(db, 0, sizeof(hash));
+  memset(db, 0, sizeof(edb));
 
 
   if (readonly && overwrite) {
@@ -85,7 +85,7 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
     size = BLOCK_SIZE;
   }
 
-  ret -= hash_map(db, size);
+  ret -= edb_map(db, size);
   if (ret < 0) {
     ret -= 100;
     goto err;
@@ -93,29 +93,29 @@ int hash_open(hash *db, const char* fname, int readonly, int overwrite) {
 
   if (db->size == 0) {
     // new or overwritten file
-    hash_init(db);
+    edb_init(db);
   }
   else {
     // existing file
-    hash_check(db);
+    edb_check(db);
   }
 
   return ret;
 
   err:
 
-  hash_close(db);
+  edb_close(db);
 
   if (db != NULL) {
-    memset(db, 0, sizeof(hash));
+    memset(db, 0, sizeof(edb));
   }
   return ret;
 }
 
-void hash_close(hash *db) {
+void edb_close(edb *db) {
   if (db == NULL) return;
 
-  hash_map_close(db);
+  edb_map_close(db);
 #ifdef _WIN32
   if (db->h_file != INVALID_HANDLE_VALUE) {
     CloseHandle(db->h_file);
@@ -129,7 +129,7 @@ void hash_close(hash *db) {
 #endif
 }
 
-void hash_map_close(hash *db) {
+void edb_map_close(edb *db) {
   if (db == NULL) return;
 #ifdef _WIN32
   if (db->data != NULL) {
@@ -149,11 +149,11 @@ void hash_map_close(hash *db) {
 #endif
 }
 
-int hash_map(hash *db, uint64_t size) {
+int edb_map(edb *db, uint64_t size) {
   if (db == NULL) return -1;
   int ret = 0;
 
-  hash_map_close(db);
+  edb_map_close(db);
 #ifdef _WIN32
   db->h_mapping = CreateFileMapping(
     db->h_file,
@@ -209,27 +209,27 @@ int hash_map(hash *db, uint64_t size) {
   return ret;
 
   err:
-  hash_map_close(db);
+  edb_map_close(db);
   db->size = 0;
   return ret;
 }
 
-int hash_check(const hash *db) {
+int edb_check(const edb *db) {
   return 0;
 }
 
-int hash_init(hash *db) {
+int edb_init(edb *db) {
   return 0;
 }
 
 
-char* hash_get(const hash *db,
+char* edb_get(const edb *db,
     const char* key, uint32_t nkey) {
 
   return NULL;
 }
 
-int hash_put(hash *db,
+int edb_put(edb *db,
     const char* key, uint32_t nkey,
     const char* value, uint32_t nvalue) {
 

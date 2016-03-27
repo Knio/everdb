@@ -24,51 +24,41 @@ typedef struct {
 #ifdef _WIN32
   HANDLE h_file;
   HANDLE h_mapping;
-#elif __linux__
-  int h_file;
 #else
-#error Unsupported OS
+  int h_file;
+  void* h_map;
 #endif
   void* data;
   uint64_t size;
-} hash;
+} edb;
 
 
 /**
- * Open or create a hashdb file
- * The database or null is returned in the hashdb param
+ * Open or create a edbdb file
+ * The database or null is returned in the edbdb param
  * @return 0 on success, -1 on open error, other values on other errors
  */
-int hash_open(hash *db, const char* f_name,
+int edb_open(edb *db, const char* f_name,
     int readonly,
     int overwrite);
 
 
-void hash_close(hash *db);
+void edb_close(edb *db);
 
 /**
  * lookup a key
  * @return value of key
  */
-char* hash_get(const hash *db,
+char* edb_get(const edb *db,
     const char* key, uint32_t nkey);
 
 /**
  * Insert or overwrite a key
  */
-int hash_put(hash *db,
+int edb_put(edb *db,
     const char* key, uint32_t nkey,
     const char* value, uint32_t nvalue);
 
-/**
- * Initialize a new empty db
- */
-int hash_init(hash *db);
-
-/**
- * Check header / checksums / etc
- */
-int hash_check(const hash *db);
 
 #ifdef __cplusplus
 }
