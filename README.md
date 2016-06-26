@@ -14,7 +14,7 @@ database file.
 *everdb* is:
 * Embedded (your application opens the database file directly)
 * Single-user (only one process can open the file at a time)
-* ACID complient (supports transactions and guarantees data reliability)
+* ACID compliant (supports transactions and guarantees data reliability)
 * Efficient (datastructures are fast, all operations do not need to load large
   structures into memory, optimized for 4K RAM/disk sizes, etc)
 
@@ -40,7 +40,7 @@ TODO
 - [ ] Fixed-length struct array datatype
 - [ ] Transacions & ACID
 
-Datastructures
+Data Structures
 ==============
 
 everdb supports three data structures: Blobs, Arrays, and Hashes.
@@ -49,7 +49,7 @@ everdb supports three data structures: Blobs, Arrays, and Hashes.
 Blobs
 -----
 
-A Blob is a an arbitrary sized array of bytes, similar to the `bytrarray` Python
+A Blob is a an arbitrary sized array of bytes, similar to the `bytearray` Python
 type. The maximum size of a blob is slightly under 2GiB (2128609280B).  Blobs
 can be accessed similar to a `bytearray` or `file` object.  Indexing, slicing,
 and appending to a blob is space efficient and only loads the required data into
