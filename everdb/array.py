@@ -5,6 +5,7 @@ Array of single primitive (struct) items
 # pylint: disable=W0311
 
 import struct
+import weakref
 
 from .page import Page, Field
 from .page import SMALL_PAGE, REGULAR_PAGE
@@ -13,11 +14,25 @@ from .page import ZERO_BLOCK, BLOCK_MASK, BLOCK_SIZE
 class Array(Page):
   format    = Field('c')
   length    = Field('Q')
+  # __slots__ = [
+  #   'length',
+  #   'format',
+  #   'format_ascii',
+  #   'item_size',
+  #   'items_per_block',
+  #   'block_cache',
+  #   'num_blocks',
+  #   'type',
+  #   'host',
+  #   'root',
+  # ]
 
   def __init__(self, host, root, format, new):
     self.format = format.encode('ascii')
+    self.format_ascii = format
     self.item_size = struct.calcsize(format)
     self.items_per_block = BLOCK_SIZE // self.item_size
+    self.block_cache = weakref.WeakValueDictionary()
     super(Array, self).__init__(host, root, new)
 
   def init_root(self):
@@ -35,44 +50,70 @@ class Array(Page):
   def __len__(self):
     return self.length
 
+  def get_array_block(self, j):
+    try:
+      return self.block_cache[j]
+    except KeyError:
+      if j == -1:
+        b = self.host[self.root]
+      else:
+        b = self.get_block(j)
+      b = b.cast(self.format_ascii)
+      self.block_cache[j] = b
+      self.host.cache(b)
+      return b
+
   def __getitem__(self, i):
     if isinstance(i, slice):
       return self.getslice(i)
 
     if i < 0:
       i = self.length + i
+
     if not (0 <= i < self.length):
       raise IndexError('index out of range: %d (length: %d)'
         % (i, self.length))
 
-    j = i // self.items_per_block
-    k = i  % self.items_per_block
-
     if self.type == SMALL_PAGE:
-      b = self.host[self.root]
-    else:
-      b = self.get_block(j)
+      j = -1
+      k = i
 
-    # TODO SLOW cache this
-    return b.cast(self.format.decode('ascii'))[k]
+    else:
+      j = i // self.items_per_block
+      k = i  % self.items_per_block
+
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
+    return b[k]
 
   def __setitem__(self, i, v):
     if isinstance(i, slice):
       return self.setslice(i, v)
 
+    if i < 0:
+      i = self.length + i
+
     if not (0 <= i < self.length):
       raise IndexError()
 
-    j = i // self.items_per_block
-    k = i  % self.items_per_block
-
     if self.type == SMALL_PAGE:
-      b = self.host[self.root]
-    else:
-      b = self.get_block(j)
+      j = -1
+      k = i
 
-    # TODO SLOW cache this
-    b.cast(self.format.decode('ascii'))[k] = v
+    else:
+      j = i // self.items_per_block
+      k = i  % self.items_per_block
+
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
+    b[k] = v
+    return v
 
   def getslice(self, i):
     raise NotImplementedError
@@ -85,32 +126,76 @@ class Array(Page):
 
   def append(self, v):
     l = self.length
-    assert self.capacity >= l + 1
+    n = self.num_blocks
+
+    if n == 0:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
+      j = -1
+      k = l
+
+    else:
+      p = self.items_per_block
+      j = l // p
+      k = l  % p
+
     self.length += 1
-    self[l] = v
-    # ensure 1 extra slot
-    if self.capacity < l + 2:
-      if self.num_blocks == 0:
+
+    # TODO fix allocation if user manually filled a block to capacity
+    assert j < n
+
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+    b[k] = v
+    del b
+
+    # an allocate here may cause a pop(),
+    # and that pop must not cause free.
+    if k + 1 >= p:
+      if n == 0:
         self.make_regular()
-      else:
-        self.allocate(self.num_blocks + 1)
+      elif j + 1 == n:
+        self.allocate(n + 1)
 
   def pop(self):
-    if not self.length:
+    l = self.length - 1
+    n = self.num_blocks
+
+    if l == -1:
       raise IndexError
-    l = self.length
-    j = l - 1
-    x = self[j]
-    self[j] = 0
-    self.length = j
 
-    if self.num_blocks == 1:
-      if (BLOCK_SIZE - self._header_size) // self.item_size > l:
+    if n == 0:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
+      j = -1
+      k = l
+
+    elif n == 1:
+      p = (BLOCK_SIZE - self._header_size) // self.item_size
+      j = 0
+      k = l
+
+    else:
+      p = self.items_per_block
+      j = l // p
+      k = l  % p
+
+    try:
+      b = self.block_cache[j]
+    except KeyError:
+      b = self.get_array_block(j)
+
+    x = b[k]
+    b[k] = 0
+    del b
+
+    self.length = l
+
+    if k < p - 1:
+      if n == 1:
         self.make_small()
-
-    elif self.num_blocks > 1:
-      if (self.num_blocks - 1) * self.items_per_block > l:
-        self.allocate(self.num_blocks - 1)
+      elif j + 2 == n:
+        self.allocate(n - 1)
 
     return x
 
@@ -127,6 +212,7 @@ class Array(Page):
         # copy data to root in small block
         data = bytes(self.get_block(0)[0:length])
         # free data + page blocks,
+        self.last_block = None
         self.allocate(0)
         self.host[self.root][0:length] = data
         self.type = SMALL_PAGE
@@ -137,7 +223,7 @@ class Array(Page):
       # no zero fill when growing, since we assume the block was
       # zeroed either above or on blob creation
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
     # requested size requires a regular blob
@@ -154,9 +240,10 @@ class Array(Page):
         s = slice(length % self.items_per_block, BLOCK_SIZE)
         b[s] = ZERO_BLOCK[s]
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
+    self.last_block = None
     if self.type == SMALL_PAGE:
       self.make_regular()
 
@@ -165,8 +252,8 @@ class Array(Page):
     self.allocate(num_blocks)
 
     self.length = length
-    self.flush_root()
+    self.sync_header()
 
   def __repr__(self):
-    return '''<Array(root=%d, type=%d, format=%s, num_blocks=%d, length=%d)>''' % \
-        (self.root, self.type, self.format, self.num_blocks, self.length)
+    return '''<Array(root=%d, type=%d, format=%s, num_blocks=%d, length=%d, capacity=%d)>''' % \
+        (self.root, self.type, self.format, self.num_blocks, self.length, self.capacity)

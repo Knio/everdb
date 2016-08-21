@@ -4,7 +4,7 @@ import pytest
 
 import everdb
 
-TEST_NAME = 'test_archive.deleteme.dat'
+TEST_NAME = '_everdb.test.deleteme'
 
 
 def test_resize():
@@ -203,6 +203,26 @@ def test_todo():
   db.close()
   os.remove(TEST_NAME)
 
+
+def test_large():
+  db = everdb.Database(TEST_NAME, overwrite=True)
+  # db.freelist = []
+  ar = db.array('I')
+
+  n = 50000
+  for i in range(n):
+    ar.append(i)
+    assert ar[i] == i
+
+  for i in range(n-1, -1, -1):
+    assert ar[i] == i
+    assert ar.pop() == i
+  assert ar.capacity < 1024
+
+  assert list(ar) == []
+  ar.close()
+  db.close()
+  os.remove(TEST_NAME)
 
 
 if __name__ == '__main__':

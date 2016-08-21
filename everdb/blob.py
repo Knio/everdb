@@ -70,14 +70,13 @@ class Blob(Page):
       i += l
     if self.type == SMALL_PAGE:
       # TODO don't do this
-      self.sync_header(self.host[self.root])
+      self.sync_header()
 
   def resize(self, length):
     '''
     Resizes the blob to a given length, by truntating it or
     extending with zero bytes.
     '''
-    print('resize(%d)' % length)
     # requested size fits in a small block
     # handles both grow and shrink operation
     if length < 0:
@@ -103,7 +102,7 @@ class Blob(Page):
       # no zero fill when growing, since we assume the block was
       # zeroed either above or on blob creation
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
     # requested size requires a regular blob
@@ -118,7 +117,7 @@ class Blob(Page):
         s = slice(OFFSET(length), OFFSET(self.length - 1) + 1)
         b[s] = ZERO_BLOCK[s]
       self.length = length
-      self.flush_root()
+      self.sync_header()
       return
 
     if self.type == SMALL_PAGE:
@@ -128,7 +127,7 @@ class Blob(Page):
     self.allocate(num_blocks)
 
     self.length = length
-    self.flush_root()
+    self.sync_header()
 
   def __repr__(self):
     return '''<Blob(root=%d, type=%d, num_blocks=%d, length=%d)>''' % \
