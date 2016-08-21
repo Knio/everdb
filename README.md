@@ -8,8 +8,8 @@ database file.
 [![Build Status][buildlogo]](https://travis-ci.org/Knio/everdb)
 [![Coverage Status][coveragelogo]](https://coveralls.io/r/Knio/everdb)
 
-[buildlogo]: https://travis-ci.org/Knio/everdb.svg
-[coveragelogo]: https://img.shields.io/coveralls/Knio/everdb.svg
+[buildlogo]: https://travis-ci.org/Knio/everdb.svg?branch=master
+[coveragelogo]: https://img.shields.io/coveralls/Knio/everdb.svg?branch=master
 
 *everdb* is:
 * Embedded (your application opens the database file directly)
